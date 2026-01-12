@@ -1,13 +1,22 @@
 # CC Vibe Portal 🚀
 
-Ein modernes Firmen-Intranet, erstellt mit Vibe Coding.
+Ein modernes Firmen-Intranet / LMS-Prototyp, erstellt mit Vibe Coding.
 
 ## Features
 
-*   **Dashboard**: Übersicht über News, Zeiterfassung und Kurse.
-*   **Zeiterfassung**: Einfaches Ein- und Ausstempeln mit Historie.
-*   **Kursplan**: Automatische Gruppierung von Kursen nach Datum.
-*   **Schwarzes Brett**: "Suche & Biete" Marktplatz für Studenten.
+*   **Rollensystem**: Login als Student, Lehrer oder Administrator (via Dev-Login).
+*   **Dashboard**: Rollenspezifische Widgets (News, Kurse, offene Anfragen).
+*   **Zeiterfassung**: Einfaches Ein- und Ausstempeln mit Historie & Arbeitszeit-Statistik.
+*   **Kursplan**: Übersicht über anstehende Module und Prüfungen.
+*   **Schwarzes Brett**: "Suche & Biete" Marktplatz.
+*   **Support-System (Anfragen)**:
+    *   Schüler können Fragen an Lehrer oder Admins stellen.
+    *   Personal kann Anfragen beantworten.
+    *   Historie der gestellten und beantworteten Fragen.
+*   **Profil-Seiten**:
+    *   **Studenten**: Notenübersicht und Anwesenheits-KPIs.
+    *   **Lehrer**: Übersicht der Lehrkompetenzen (aktive/inaktive Module).
+    *   **Admins**: Abteilungsinfo und Arbeitszeit-Auswertung.
 
 ## Tech Stack
 
@@ -23,13 +32,17 @@ Ein modernes Firmen-Intranet, erstellt mit Vibe Coding.
     npm install
     ```
 
-2.  Datenbank vorbereiten:
+2.  Datenbank synchronisieren (Push):
     ```bash
-    npx prisma migrate dev --name init
+    npx prisma db push
+    ```
+
+3.  (Optional) Datenbank mit Testdaten füllen:
+    ```bash
     npx prisma db seed
     ```
 
-3.  Server starten:
+4.  Server starten:
     ```bash
     npm run dev
     ```
@@ -38,7 +51,7 @@ Das Portal ist dann unter `http://localhost:3000` erreichbar.
 
 ## Projektstruktur
 
-*   `/app`: Next.js Pages & Layouts
-*   `/components`: UI Komponenten (Buttons, Cards, Sidebar)
-*   `/lib`: Server Actions & Datenbank-Client
-*   `/prisma`: Datenbankschema & Seed-Script
+*   `/app`: Next.js Pages & Layouts (Dashboard, Profil, Inquiries, etc.)
+*   `/components`: UI Komponenten (Sidebar, Widgets, shadcn/ui)
+*   `/lib`: Server Actions (Business Logic) & Auth
+*   `/prisma`: Datenbankschema (Models für User, Grade, Inquiry, etc.)

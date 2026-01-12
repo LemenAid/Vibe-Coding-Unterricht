@@ -10,8 +10,26 @@ async function main() {
   await prisma.announcement.deleteMany()
   await prisma.user.deleteMany()
 
-  // Create User
-  const user = await prisma.user.create({
+  // 1. Admin / IT
+  const admin = await prisma.user.create({
+    data: {
+      name: 'Admin Adminowitsch',
+      email: 'admin@cc-corp.de',
+      role: 'admin',
+    },
+  })
+
+  // 2. Dozent
+  const doc = await prisma.user.create({
+    data: {
+      name: 'Dr. Prof. Code',
+      email: 'doc@cc-corp.de',
+      role: 'staff',
+    },
+  })
+
+  // 3. Student 1 (Der Klassiker)
+  const max = await prisma.user.create({
     data: {
       name: 'Max Mustermann',
       email: 'max@cc-student.de',
@@ -19,22 +37,40 @@ async function main() {
     },
   })
 
-  console.log('Created User:', user.name)
+  // 4. Student 2 (Engagiert)
+  const anna = await prisma.user.create({
+    data: {
+      name: 'Anna Fleißig',
+      email: 'anna@cc-student.de',
+      role: 'student',
+    },
+  })
+
+  // 5. Verwaltung / Sekretariat
+  const office = await prisma.user.create({
+    data: {
+      name: 'Susi Sorglos',
+      email: 'office@cc-corp.de',
+      role: 'admin',
+    },
+  })
+
+  console.log('Users created: Admin, Doc, Max, Anna, Susi')
 
   // Create Announcements
   await prisma.announcement.create({
     data: {
-      title: 'Willkommen im neuen Intranet!',
-      content: 'Wir freuen uns, euch das neue Vibe-Portal vorzustellen. Alles läuft jetzt schneller und schöner.',
-      author: 'Admin Team',
+      title: 'Willkommen im neuen Intranet 2.0!',
+      content: 'Jetzt mit Login und echten Usern. Viel Spaß beim Testen.',
+      author: 'Admin Adminowitsch',
     }
   })
   
   await prisma.announcement.create({
     data: {
-      title: 'Wartungsarbeiten am Wochenende',
-      content: 'Am Samstag werden die Server kurz neu gestartet.',
-      author: 'IT Support',
+      title: 'Kaffeemaschine defekt',
+      content: 'Die Maschine im 2. Stock wird morgen repariert.',
+      author: 'Susi Sorglos',
     }
   })
 
@@ -45,12 +81,12 @@ async function main() {
   
   await prisma.courseEvent.create({
     data: {
-      title: 'Web Development Basics',
-      description: 'Einführung in HTML & CSS',
+      title: 'Advanced React Patterns',
+      description: 'Deep Dive in Server Components',
       startTime: tomorrow,
-      endTime: new Date(tomorrow.getTime() + 4 * 60 * 60 * 1000), // +4 hours
-      location: 'Raum 304',
-      instructor: 'Dr. Code',
+      endTime: new Date(tomorrow.getTime() + 4 * 60 * 60 * 1000), 
+      location: 'Raum 404',
+      instructor: 'Dr. Prof. Code',
     }
   })
 
@@ -61,16 +97,48 @@ async function main() {
       description: 'Wer hat Lust sich 2x die Woche zu treffen?',
       type: 'SEARCH',
       contactInfo: 'Slack: @max',
-      userId: user.id
+      userId: max.id
     }
   })
   
    await prisma.bulletinPost.create({
     data: {
-      title: 'Biete alte Fachbücher',
-      description: 'Clean Code, Pragmatic Programmer zu verschenken',
+      title: 'Nachhilfe Statistik',
+      description: 'Ich biete Statistik-Nachhilfe für Erstis.',
       type: 'OFFER',
-      contactInfo: 'Am Empfang melden',
+      contactInfo: 'anna@cc-student.de',
+      userId: anna.id
+    }
+  })
+
+  // Create Exams
+  await prisma.exam.create({
+    data: {
+      title: 'Web Development Abschlussprüfung',
+      date: new Date(tomorrow.getTime() + 7 * 24 * 60 * 60 * 1000), // In 1 week
+      content: 'HTML, CSS, React, Next.js, Prisma',
+      location: 'Hörsaal 1',
+      duration: 90
+    }
+  })
+
+  await prisma.exam.create({
+    data: {
+      title: 'Datenbanken I',
+      date: new Date(tomorrow.getTime() + 14 * 24 * 60 * 60 * 1000), // In 2 weeks
+      content: 'SQL, Normalisierung, ER-Diagramme',
+      location: 'Raum 202',
+      duration: 60
+    }
+  })
+
+  await prisma.exam.create({
+    data: {
+      title: 'Statistik Klausur',
+      date: new Date(tomorrow.getTime() + 20 * 24 * 60 * 60 * 1000), // In 3 weeks
+      content: 'Wahrscheinlichkeitsrechnung, Verteilungen',
+      location: 'Hörsaal 2',
+      duration: 120
     }
   })
 

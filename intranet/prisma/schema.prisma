@@ -17,11 +17,15 @@ model User {
   name      String
   email     String   @unique
   role      String   @default("user") // "admin", "student", "staff"
+  department String? // Für Admins/Staff: z.B. "IT-Support", "Verwaltung"
   createdAt DateTime @default(now())
   
   // Relationen
-  timeEntries TimeEntry[]
-  posts       BulletinPost[]
+  timeEntries   TimeEntry[]
+  posts         BulletinPost[]
+  inquiries     Inquiry[]
+  grades        Grade[]
+  teacherSkills TeacherSkill[]
 }
 
 model TimeEntry {
@@ -67,4 +71,48 @@ model BulletinPost {
   user        User?    @relation(fields: [userId], references: [id])
   
   createdAt   DateTime @default(now())
+}
+
+model Exam {
+  id          String   @id @default(cuid())
+  title       String
+  date        DateTime
+  content     String   // Was wird abgefragt?
+  location    String
+  duration    Int      // Dauer in Minuten
+  
+  createdAt   DateTime @default(now())
+}
+
+model Inquiry {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  subject     String
+  message     String
+  category    String   // "ADMIN", "TEACHER"
+  status      String   @default("OPEN") // "OPEN", "ANSWERED"
+  answer      String?  // Antwort vom Personal
+  
+  createdAt   DateTime @default(now())
+  answeredAt  DateTime?
+}
+
+// Neu für Profil-Features
+model Grade {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  subject   String   // z.B. "Mathematik"
+  value     Float    // z.B. 2.5
+  date      DateTime @default(now())
+}
+
+model TeacherSkill {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  subject   String   // z.B. "Web Development"
+  isActive  Boolean  @default(true)
 }

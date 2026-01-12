@@ -5,11 +5,17 @@ import {
   Clock, 
   MessageSquare, 
   LogOut,
-  User
+  HelpCircle,
+  User as UserIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getCurrentUser } from "@/lib/auth";
+import { logoutAction } from "@/lib/auth-actions";
 
-export function Sidebar() {
+export async function Sidebar() {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
   return (
     <div className="flex h-screen w-64 flex-col justify-between border-r bg-gray-50/40 p-4 dark:bg-gray-800/40">
       <div className="space-y-4">
@@ -45,24 +51,40 @@ export function Sidebar() {
               Schwarzes Brett
             </Button>
           </Link>
+          <Link href="/inquiries">
+            <Button variant="ghost" className="w-full justify-start gap-2">
+              <HelpCircle size={20} />
+              Anfragen
+            </Button>
+          </Link>
         </nav>
       </div>
 
       <div className="space-y-4">
         <div className="flex items-center gap-3 rounded-lg border bg-white p-3 dark:bg-gray-900">
-            <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                <User size={20} className="text-gray-500" />
-            </div>
-            <div className="flex flex-col">
-                <span className="text-sm font-medium">Max Mustermann</span>
-                <span className="text-xs text-gray-500">Student</span>
-            </div>
+            <Link href="/profile" className="flex items-center gap-3 flex-1 hover:opacity-80 transition-opacity">
+                <div className={`h-10 w-10 rounded-full flex items-center justify-center text-white font-bold
+                    ${user.role === 'admin' ? 'bg-red-500' : 
+                      user.role === 'staff' ? 'bg-purple-500' : 'bg-blue-500'
+                    }`}
+                >
+                    {user.name.charAt(0)}
+                </div>
+                <div className="flex flex-col overflow-hidden">
+                    <span className="text-sm font-medium truncate">{user.name}</span>
+                    <span className="text-xs text-gray-500 capitalize">{user.role}</span>
+                </div>
+            </Link>
         </div>
-        <Button variant="outline" className="w-full gap-2 text-red-500 hover:text-red-600 hover:bg-red-50">
-          <LogOut size={16} />
-          Abmelden
-        </Button>
+        
+        <form action={logoutAction}>
+            <Button variant="outline" className="w-full gap-2 text-red-500 hover:text-red-600 hover:bg-red-50">
+            <LogOut size={16} />
+            Abmelden
+            </Button>
+        </form>
       </div>
     </div>
   );
 }
+

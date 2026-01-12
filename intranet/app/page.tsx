@@ -7,27 +7,72 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import { 
   Clock, 
-  Calendar, 
   Megaphone, 
   Pin,
-  ArrowRight
+  ArrowRight,
+  PlusCircle,
+  GraduationCap,
+  HelpCircle,
+  CalendarDays
 } from "lucide-react";
 import { 
   getAnnouncements, 
   getCourseEvents, 
   getLastTimeEntry, 
+  getExams,
   clockIn, 
-  clockOut 
+  clockOut,
+  createAnnouncement,
+  createInquiry,
+  getOpenInquiries,
+  resolveInquiry
 } from "@/lib/actions";
+import { requireUser } from "@/lib/auth";
 
 export default async function Home() {
+  const user = await requireUser(); // Login Check
+
   const announcements = await getAnnouncements();
   const nextCourses = await getCourseEvents();
+  const nextExams = await getExams();
   const lastEntry = await getLastTimeEntry();
   
+  // Nur abrufen, wenn kein Student
+  const openInquiries = user.role !== 'student' ? await getOpenInquiries() : [];
+  
   const isClockedIn = lastEntry && !lastEntry.clockOut;
+  const isStaffOrAdmin = user.role === 'admin' || user.role === 'staff';
+
+  // Formatierungs-Helper
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
 
   return (
     <div className="space-y-8">
@@ -35,10 +80,55 @@ export default async function Home() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-gray-500">Willkommen zurück, Max Mustermann.</p>
+          <p className="text-gray-500">Willkommen zurück, {user.name}.</p>
         </div>
-        <div className="text-right text-sm text-gray-500">
-          {new Date().toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+        
+        <div className="flex items-center gap-4">
+             <div className="text-right text-sm text-gray-500">
+              {formatDate(new Date())}
+            </div>
+            
+            {/* Frage Einreichen Dialog - Nur für Studenten sichtbar (oder alle, wenn gewünscht) */}
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                    <HelpCircle size={16} /> Frage einreichen
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Frage stellen</DialogTitle>
+                  <DialogDescription>
+                    Sende eine Anfrage an das Lehrpersonal oder die Administration.
+                  </DialogDescription>
+                </DialogHeader>
+                <form action={createInquiry} className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="category">An wen?</Label>
+                         <Select name="category" required>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Wähle einen Empfänger" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="TEACHER">Lehrer / Dozenten</SelectItem>
+                            <SelectItem value="ADMIN">Administration / IT</SelectItem>
+                          </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="subject">Betreff</Label>
+                        <Input id="subject" name="subject" placeholder="Kurze Zusammenfassung" required />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="message">Deine Nachricht</Label>
+                        <Textarea id="message" name="message" placeholder="Beschreibe dein Anliegen..." required />
+                    </div>
+                    <DialogFooter>
+                        <Button type="submit">Absenden</Button>
+                    </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
         </div>
       </div>
 
@@ -82,6 +172,96 @@ export default async function Home() {
               </form>
             </CardContent>
           </Card>
+          
+          {/* OFFENE ANFRAGEN WIDGET (Nur für Staff/Admin) */}
+          {isStaffOrAdmin && (
+             <Card className="border-orange-200 bg-orange-50">
+               <CardHeader>
+                 <CardTitle className="flex items-center gap-2 text-orange-800">
+                    <HelpCircle size={18} /> Offene Anfragen ({openInquiries.length})
+                 </CardTitle>
+                 <CardDescription>Anfragen von Studenten, die deine Aufmerksamkeit benötigen.</CardDescription>
+               </CardHeader>
+               <CardContent className="space-y-4">
+                 {openInquiries.map((inquiry) => (
+                    <div key={inquiry.id} className="bg-white p-4 rounded-lg border shadow-sm flex flex-col gap-3">
+                        <div>
+                            <h4 className="font-semibold text-sm">{inquiry.subject}</h4>
+                            <p className="text-xs text-gray-500 mt-1">Von: {inquiry.user.name}</p>
+                            <p className="text-sm text-gray-700 mt-2">{inquiry.message}</p>
+                        </div>
+                        <form action={resolveInquiry} className="flex gap-2 items-end w-full">
+                            <input type="hidden" name="inquiryId" value={inquiry.id} />
+                            <div className="flex-1">
+                                <Label htmlFor={`answer-${inquiry.id}`} className="sr-only">Antwort</Label>
+                                <Input 
+                                    id={`answer-${inquiry.id}`} 
+                                    name="answer" 
+                                    placeholder="Antwort schreiben..." 
+                                    className="h-8 text-xs"
+                                    required 
+                                />
+                            </div>
+                            <Button size="sm" type="submit" variant="outline" className="h-8 text-green-600 hover:text-green-700 hover:bg-green-50 border-green-200">
+                                Senden & Erledigen
+                            </Button>
+                        </form>
+                    </div>
+                 ))}
+                 {openInquiries.length === 0 && (
+                     <p className="text-sm text-gray-500 italic">Keine offenen Anfragen. Gute Arbeit!</p>
+                 )}
+               </CardContent>
+             </Card>
+          )}
+
+           {/* Prüfungen Widget */}
+           <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                 <GraduationCap size={18} /> Anstehende Prüfungen
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {nextExams.map((exam) => (
+                  <HoverCard key={exam.id}>
+                    <HoverCardTrigger asChild>
+                        <div className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0 cursor-help hover:bg-gray-50 p-2 rounded-md transition-colors">
+                            <div className="space-y-1">
+                                <p className="font-medium leading-none">{exam.title}</p>
+                                <p className="text-sm text-muted-foreground">
+                                    {formatDate(exam.date)}
+                                </p>
+                            </div>
+                            <Badge variant="secondary">Info</Badge>
+                        </div>
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-80">
+                        <div className="flex justify-between space-x-4">
+                        <div className="space-y-1">
+                            <h4 className="text-sm font-semibold">{exam.title}</h4>
+                            <p className="text-sm text-muted-foreground">
+                                {exam.content}
+                            </p>
+                            <div className="flex items-center pt-2">
+                            <CalendarDays className="mr-2 h-4 w-4 opacity-70" />{" "}
+                            <span className="text-xs text-muted-foreground">
+                                {formatDate(exam.date)} • {exam.duration} Min. • {exam.location}
+                            </span>
+                            </div>
+                        </div>
+                        </div>
+                    </HoverCardContent>
+                  </HoverCard>
+                ))}
+                {nextExams.length === 0 && (
+                     <p className="text-sm text-gray-500">Keine anstehenden Prüfungen.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
 
           {/* Kursplan Widget */}
           <Card>
@@ -120,19 +300,50 @@ export default async function Home() {
           
           {/* Announcements Widget */}
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="flex items-center gap-2">
                 <Megaphone size={18} /> News
               </CardTitle>
+              {user.role !== 'student' && (
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <PlusCircle className="h-4 w-4" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Neue Ankündigung</DialogTitle>
+                      <DialogDescription>
+                        Erstelle eine News für alle Benutzer.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form action={createAnnouncement} className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="title">Titel</Label>
+                            <Input id="title" name="title" placeholder="Wichtiges Update" required />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="content">Inhalt</Label>
+                            <Input id="content" name="content" placeholder="Nachrichtentext..." required />
+                        </div>
+                        <DialogFooter>
+                            <Button type="submit">Veröffentlichen</Button>
+                        </DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               {announcements.map((news) => (
                 <div key={news.id} className="bg-gray-50 p-3 rounded-lg border">
                   <h4 className="font-semibold text-sm text-blue-700">{news.title}</h4>
                   <p className="text-xs text-gray-600 mt-1 line-clamp-2">{news.content}</p>
-                  <p className="text-[10px] text-gray-400 mt-2 text-right">
-                    {news.createdAt.toLocaleDateString()}
-                  </p>
+                  <div className="flex justify-between items-center mt-2">
+                    <span className="text-[10px] text-gray-400 font-medium">{news.author}</span>
+                    <span className="text-[10px] text-gray-400">{formatDate(news.createdAt)}</span>
+                  </div>
                 </div>
               ))}
             </CardContent>
