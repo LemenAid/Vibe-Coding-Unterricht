@@ -15,15 +15,74 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { getRecentEntries } from "@/lib/actions";
+import { Button } from "@/components/ui/button"; // Added Button
+import { Download } from "lucide-react"; // Added Download Icon
+import { prisma } from "@/lib/prisma"; // Direct prisma access for CSV export logic
+import { getCurrentUser } from "@/lib/auth";
 
 export default async function TimePage() {
   const entries = await getRecentEntries();
+  const user = await getCurrentUser();
+
+  // CSV Export Logic (Inline Server Action for simplicity)
+  async function exportTimeEntries() {
+      "use server";
+      const user = await getCurrentUser();
+      if (!user) return;
+
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+      const monthEntries = await prisma.timeEntry.findMany({
+          where: {
+              userId: user.id,
+              clockIn: {
+                  gte: firstDayOfMonth,
+                  lte: lastDayOfMonth
+              }
+          },
+          orderBy: { clockIn: 'asc' }
+      });
+
+      // Simple CSV construction
+      const headers = "Datum,Ort,Kommen,Gehen,Dauer (Min)\n";
+      const rows = monthEntries.map(e => {
+          const date = e.clockIn.toLocaleDateString('de-DE');
+          const location = e.location;
+          const start = e.clockIn.toLocaleTimeString('de-DE');
+          const end = e.clockOut ? e.clockOut.toLocaleTimeString('de-DE') : "";
+          const duration = e.duration || (e.clockOut ? Math.round((e.clockOut.getTime() - e.clockIn.getTime()) / 60000) : 0);
+          return `${date},${location},${start},${end},${duration}`;
+      }).join("\n");
+
+      // In a real app, we would stream this or return a blob/url. 
+      // Server Actions limit us from returning files directly easily without client handling.
+      // For MVP, we will assume this action would trigger a download via a redirect to a route handler
+      // OR we just log it for now as "Download feature prepared". 
+      // ACTUALLY: Let's do a client-side download simulation or a route handler.
+      // Since creating a new route handler is out of scope of "quick edits", 
+      // let's print a message that this feature would download "Monthly_Report.csv".
+      
+      // Better approach for MVP within Server Action constraints:
+      // Redirect to a specialized route handler is the clean way.
+      // Let's just mock it visually or return the string to be handled? No, complex.
+      
+      // Let's implement the button to redirect to a new API route we will create.
+  }
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Zeiterfassung</h1>
-        <p className="text-gray-500">Deine Arbeitszeiten im Überblick.</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Zeiterfassung</h1>
+          <p className="text-gray-500">Deine Arbeitszeiten im Überblick.</p>
+        </div>
+        <form action="/api/time/export" method="GET">
+             <Button className="gap-2" variant="outline">
+                <Download size={16} /> Monatsbericht (CSV)
+             </Button>
+        </form>
       </div>
 
       <Card>
