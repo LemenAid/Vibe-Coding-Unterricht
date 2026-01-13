@@ -14,62 +14,27 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { getRecentEntries } from "@/lib/actions";
-import { Button } from "@/components/ui/button"; // Added Button
-import { Download } from "lucide-react"; // Added Download Icon
-import { prisma } from "@/lib/prisma"; // Direct prisma access for CSV export logic
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
+import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { calculateDailyStats } from "@/lib/time-utils";
+import { AttendanceCalendar } from "./calendar-view";
+import { TimeStatsOverview } from "./stats-overview";
 
 export default async function TimePage() {
-  const entries = await getRecentEntries();
   const user = await getCurrentUser();
-
-  // CSV Export Logic (Inline Server Action for simplicity)
-  async function exportTimeEntries() {
-      "use server";
-      const user = await getCurrentUser();
-      if (!user) return;
-
-      const now = new Date();
-      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-      const monthEntries = await prisma.timeEntry.findMany({
-          where: {
-              userId: user.id,
-              clockIn: {
-                  gte: firstDayOfMonth,
-                  lte: lastDayOfMonth
-              }
-          },
-          orderBy: { clockIn: 'asc' }
-      });
-
-      // Simple CSV construction
-      const headers = "Datum,Ort,Kommen,Gehen,Dauer (Min)\n";
-      const rows = monthEntries.map(e => {
-          const date = e.clockIn.toLocaleDateString('de-DE');
-          const location = e.location;
-          const start = e.clockIn.toLocaleTimeString('de-DE');
-          const end = e.clockOut ? e.clockOut.toLocaleTimeString('de-DE') : "";
-          const duration = e.duration || (e.clockOut ? Math.round((e.clockOut.getTime() - e.clockIn.getTime()) / 60000) : 0);
-          return `${date},${location},${start},${end},${duration}`;
-      }).join("\n");
-
-      // In a real app, we would stream this or return a blob/url. 
-      // Server Actions limit us from returning files directly easily without client handling.
-      // For MVP, we will assume this action would trigger a download via a redirect to a route handler
-      // OR we just log it for now as "Download feature prepared". 
-      // ACTUALLY: Let's do a client-side download simulation or a route handler.
-      // Since creating a new route handler is out of scope of "quick edits", 
-      // let's print a message that this feature would download "Monthly_Report.csv".
-      
-      // Better approach for MVP within Server Action constraints:
-      // Redirect to a specialized route handler is the clean way.
-      // Let's just mock it visually or return the string to be handled? No, complex.
-      
-      // Let's implement the button to redirect to a new API route we will create.
-  }
+  
+  // Fetch ALL entries for the user to do client-side/server-side calculations properly
+  // In a real scaled app, we would fetch only relevant month/year and aggregate in DB.
+  // For MVP with ~1000 entries, fetching all is fine for now.
+  const allEntries = user ? await prisma.timeEntry.findMany({
+      where: { userId: user.id },
+      orderBy: { clockIn: 'desc' }
+  }) : [];
+  
+  const recentEntries = allEntries.slice(0, 5);
+  const stats = calculateDailyStats(allEntries);
 
   return (
     <div className="space-y-8">
@@ -85,63 +50,79 @@ export default async function TimePage() {
         </form>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Letzte Buchungen</CardTitle>
-          <CardDescription>Die letzten 5 Einträge deiner Stempeluhr.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Datum</TableHead>
-                <TableHead>Ort</TableHead>
-                <TableHead>Kommen</TableHead>
-                <TableHead>Gehen</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {entries.map((entry) => (
-                <TableRow key={entry.id}>
-                  <TableCell className="font-medium">
-                    {entry.clockIn.toLocaleDateString('de-DE')}
-                  </TableCell>
-                  <TableCell>
-                    {entry.location === 'REMOTE' 
-                        ? <Badge variant="secondary">Telelearning / HomeOffice</Badge> 
-                        : <Badge variant="outline">Campus / Büro</Badge>
-                    }
-                  </TableCell>
-                  <TableCell>
-                    {entry.clockIn.toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'})}
-                  </TableCell>
-                  <TableCell>
-                    {entry.clockOut 
-                        ? entry.clockOut.toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'}) 
-                        : "-"
-                    }
-                  </TableCell>
-                  <TableCell>
-                    {entry.clockOut ? (
-                        <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">Abgeschlossen</Badge>
-                    ) : (
-                        <Badge className="bg-blue-500">Aktiv</Badge>
-                    )}
-                  </TableCell>
+      <TimeStatsOverview stats={stats} />
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="space-y-6">
+             <AttendanceCalendar entries={allEntries} />
+        </div>
+
+        <Card>
+            <CardHeader>
+            <CardTitle>Letzte Buchungen</CardTitle>
+            <CardDescription>Die letzten 5 Einträge deiner Stempeluhr.</CardDescription>
+            </CardHeader>
+            <CardContent>
+            <Table>
+                <TableHeader>
+                <TableRow>
+                    <TableHead>Datum</TableHead>
+                    <TableHead>Ort</TableHead>
+                    <TableHead>Kommen</TableHead>
+                    <TableHead>Gehen</TableHead>
+                    <TableHead>Dauer</TableHead>
                 </TableRow>
-              ))}
-              {entries.length === 0 && (
-                 <TableRow>
-                    <TableCell colSpan={5} className="text-center text-gray-500 h-24">
-                        Keine Zeiteinträge gefunden.
-                    </TableCell>
-                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                {recentEntries.map((entry) => {
+                    const durationMs = entry.clockOut ? (entry.clockOut.getTime() - entry.clockIn.getTime()) : 0;
+                    const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
+                    const durationMinutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+                    
+                    return (
+                        <TableRow key={entry.id}>
+                        <TableCell className="font-medium">
+                            {entry.clockIn.toLocaleDateString('de-DE')}
+                        </TableCell>
+                        <TableCell>
+                            {entry.location === 'REMOTE' 
+                                ? <Badge variant="secondary">Telelearning</Badge> 
+                                : <Badge variant="outline">Campus</Badge>
+                            }
+                        </TableCell>
+                        <TableCell>
+                            {entry.clockIn.toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'})}
+                        </TableCell>
+                        <TableCell>
+                            {entry.clockOut 
+                                ? entry.clockOut.toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'}) 
+                                : "-"
+                            }
+                        </TableCell>
+                        <TableCell>
+                            {entry.clockOut ? (
+                                <span className="font-mono text-xs">
+                                    {durationHours}h {durationMinutes}m {Math.floor((durationMs % (1000 * 60)) / 1000)}s
+                                </span>
+                            ) : (
+                                <Badge className="bg-blue-500">Aktiv</Badge>
+                            )}
+                        </TableCell>
+                        </TableRow>
+                    );
+                })}
+                {recentEntries.length === 0 && (
+                    <TableRow>
+                        <TableCell colSpan={5} className="text-center text-gray-500 h-24">
+                            Keine Zeiteinträge gefunden.
+                        </TableCell>
+                    </TableRow>
+                )}
+                </TableBody>
+            </Table>
+            </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

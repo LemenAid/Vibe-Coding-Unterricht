@@ -40,15 +40,19 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ c
     }
 
     const allTeachers = await prisma.user.findMany({
-        where: { role: { in: ['staff', 'admin'] } },
-        include: { teacherSkills: true }
+        where: { role: { in: ['staff', 'admin', 'teacher'] } }, // Added teacher role
+        include: { 
+            teacherSkills: {
+                include: { tag: true }
+            }
+        }
     });
 
 
     // Recommended teachers logic
     const recommendedTeachers = allTeachers.map(teacher => {
         const hasSkill = teacher.teacherSkills.some(skill => 
-            course.title.toLowerCase().includes(skill.subject.toLowerCase()) && skill.isActive
+             course.title.toLowerCase().includes(skill.tag.name.toLowerCase()) && skill.isActive
         );
         // Simple conflict check (very basic for MVP)
         // Ideally we would check CourseEvent overlaps here
@@ -149,11 +153,11 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ c
                                         {teacher.isRecommended && <span className="text-[10px] bg-blue-100 text-blue-700 px-1 rounded border border-blue-200">Empfohlen</span>}
                                     </div>
                                     <p className="text-xs text-muted-foreground">{teacher.email}</p>
-                                    <div className="flex flex-wrap gap-1 mt-1">
-                                         {teacher.teacherSkills.map(s => (
-                                             <span key={s.id} className="text-[10px] text-muted-foreground bg-muted px-1 rounded">{s.subject}</span>
-                                         ))}
-                                    </div>
+                                     <div className="flex flex-wrap gap-1 mt-1">
+                                          {teacher.teacherSkills.map(s => (
+                                              <span key={s.id} className="text-[10px] text-muted-foreground bg-muted px-1 rounded">{s.tag.name}</span>
+                                          ))}
+                                     </div>
                                 </div>
                                 {isAssigned ? (
                                      <form action={async () => {
@@ -200,19 +204,21 @@ export default async function CourseDetailPage({ params }: { params: Promise<{ c
                                             <span>{student.email}</span>
                                         </div>
                                     </div>
+
                                     <form action={toggleStudent}>
                                         <input type="hidden" name="studentId" value={student.id} />
                                         <input type="hidden" name="isAssigned" value={String(isAssigned)} />
                                         <Button 
                                             size="sm" 
-                                            variant={isAssigned ? "secondary" : "outline"}
-                                            className={isAssigned ? "text-green-700 bg-green-100 hover:bg-green-200" : ""}
+                                            variant={isAssigned ? "ghost" : "outline"}
+                                            className={isAssigned ? "text-red-500 hover:text-red-700 hover:bg-red-50" : ""}
                                             type="submit"
                                             disabled={!isAssigned && course.students.length >= course.maxStudents}
                                         >
-                                            {isAssigned ? "Dabei" : "Hinzufügen"}
+                                            {isAssigned ? <Trash2 size={16} /> : "Hinzufügen"}
                                         </Button>
                                     </form>
+
                                 </div>
                             );
                         })}

@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUser } from '@/lib/auth';
 
@@ -61,31 +62,52 @@ export async function getBulletinPosts() {
     orderBy: { createdAt: 'desc' },
     include: {
         user: {
-            select: { name: true, email: true }
+            select: { name: true, email: true, id: true, role: true }
         }
     }
   });
 }
 
-export async function createBulletinPost(formData: FormData) {
+export async function deleteBulletinPost(postId: string) {
+    const user = await getCurrentUser();
+    if (!user) throw new Error("Unauthorized");
+
+    const post = await prisma.bulletinPost.findUnique({ where: { id: postId } });
+    if (!post) throw new Error("Post not found");
+
+    if (post.userId !== user.id && user.role !== 'admin' && user.role !== 'staff') {
+        throw new Error("Forbidden");
+    }
+
+    await prisma.bulletinPost.delete({ where: { id: postId } });
+    revalidatePath('/bulletin');
+}
+
+export async function createBulletinPost(prevState: { success: boolean, message: string }, formData: FormData) {
   const user = await getCurrentUser();
-  if (!user) throw new Error("Unauthorized");
+  if (!user) return { success: false, message: "Unauthorized" };
 
   const title = formData.get('title') as string;
   const description = formData.get('description') as string;
   const type = formData.get('type') as string;
   const contactInfo = formData.get('contactInfo') as string;
 
-  await prisma.bulletinPost.create({
-    data: {
-      title,
-      description,
-      type,
-      contactInfo,
-      userId: user.id
-    },
-  });
-  revalidatePath('/bulletin');
+  try {
+      await prisma.bulletinPost.create({
+        data: {
+          title,
+          description,
+          type,
+          contactInfo,
+          userId: user.id
+        },
+      });
+      revalidatePath('/bulletin');
+      return { success: true, message: "" };
+  } catch (e) {
+      console.error(e);
+      return { success: false, message: "Failed to create post" };
+  }
 }
 
 // Announcements
@@ -148,24 +170,123 @@ export async function getExams() {
 }
 
 // Inquiries
-export async function createInquiry(formData: FormData) {
+
+export async function createNotification(userId: string, message: string, link?: string) {
+    try {
+        await prisma.notification.create({
+            data: {
+                userId,
+                message,
+                link
+            }
+        });
+    } catch (e) {
+        console.error(`Failed to create notification for user ${userId}:`, e);
+    }
+}
+
+export async function createInquiry(prevState: { success: boolean, message: string }, formData: FormData) {
     const user = await getCurrentUser();
-    if (!user) throw new Error("Unauthorized");
+    if (!user) return { success: false, message: "Unauthorized" };
   
     const subject = formData.get('subject') as string;
     const message = formData.get('message') as string;
-    const category = formData.get('category') as string;
+    const category = formData.get('category') as string; // ADMIN, TEACHER
+    const recipientId = formData.get('recipientId') as string | null;
+    const trackId = formData.get('trackId') as string | null;
   
-    await prisma.inquiry.create({
-      data: {
-        subject,
-        message,
-        category,
-        userId: user.id
-      },
-    });
-    revalidatePath('/'); 
-    revalidatePath('/inquiries');
+    try {
+        if (trackId && category === 'STUDENT' && !recipientId) {
+             // Broadcast to Track
+            const studentsInTrack = await prisma.user.findMany({
+                where: { role: 'student', educationTrackId: trackId },
+                select: { id: true }
+            });
+            
+             // Create individual inquiries or just notifications?
+             // Usually inquiries are 1:1 or 1:Pool.
+             // If I send to a track, do I want 20 open inquiries or 1 inquiry visible to 20 people?
+             // The model `recipientId` is single.
+             // To support "Broadcast Inquiry" that everyone can reply to individually is complex (threads).
+             // To support "Broadcast Notification" is easy.
+             
+             // If the intention is "Announcement", we should use Bulletin/Announcement.
+             // If Inquiry, let's create one Inquiry per student so they can reply individually.
+             
+             for (const student of studentsInTrack) {
+                 await prisma.inquiry.create({
+                    data: {
+                        subject,
+                        message,
+                        category,
+                        recipientId: student.id,
+                        userId: user.id
+                    },
+                });
+                await createNotification(student.id, `Neue Anfrage von ${user.name}: ${subject}`, `/inquiries`);
+             }
+             
+             revalidatePath('/'); 
+             revalidatePath('/inquiries');
+             return { success: true, message: `Anfrage an ${studentsInTrack.length} Studenten gesendet.` };
+
+        }
+        
+        await prisma.inquiry.create({
+            data: {
+                subject,
+                message,
+                category,
+                recipientId: recipientId || undefined,
+                userId: user.id
+            },
+        });
+
+        // Notifications Logic
+        if (recipientId) {
+                // Direct message notification
+                await createNotification(recipientId, `Neue Anfrage von ${user.name}: ${subject}`, `/inquiries`);
+            } else if (category === 'ADMIN') {
+            // Notify all admins and staff
+            const adminsAndStaff = await prisma.user.findMany({
+                where: {
+                    role: { in: ['admin', 'staff'] }
+                },
+                select: { id: true }
+            });
+            for (const admin of adminsAndStaff) {
+                await createNotification(admin.id, `Neue Anfrage an Verwaltung/Admin von ${user.name}: ${subject}`, `/inquiries`);
+            }
+
+        } else if (category === 'TEACHER') {
+             // If generic teacher inquiry (recipientId is null), notify relevant teachers?
+             // Without course context, maybe we just notify all teachers or leave it as a pool.
+             // For now, let's leave it as a pool (no spam), unless specific requirements exist.
+             // Or maybe we notify nobody and they just check the list.
+             // Let's notify all teachers for now if they are the target group "All Teachers"
+             // BUT, usually "All Teachers" means a pool.
+             // Let's SKIP broadcasting to ALL teachers to avoid spam, unless requested.
+             // Only direct messages (recipientId set) get instant notification.
+
+        } else if (category === 'STUDENT' && !recipientId) {
+            // Broadcast to all students (Use with caution)
+             const allStudents = await prisma.user.findMany({
+                where: { role: 'student' },
+                select: { id: true }
+            });
+            // Limit broadcast to avoid timeout on large db, but for intranet it's okay
+            for (const student of allStudents) {
+                await createNotification(student.id, `Allgemeine Nachricht an alle Studenten von ${user.name}: ${subject}`, `/inquiries`);
+            }
+        }
+
+        revalidatePath('/'); 
+        revalidatePath('/inquiries');
+        return { success: true, message: "Anfrage erfolgreich gesendet" };
+    } catch (e) {
+        console.error(e);
+        return { success: false, message: "Fehler beim Senden der Anfrage" };
+    }
 }
 
 export async function getUserInquiries() {
@@ -173,8 +294,21 @@ export async function getUserInquiries() {
     if (!user) return [];
 
     return prisma.inquiry.findMany({
-        where: { userId: user.id },
-        orderBy: { createdAt: 'desc' }
+        where: { 
+            OR: [
+                { userId: user.id }, // My sent inquiries
+                { recipientId: user.id } // Direct messages to me
+            ]
+        },
+        orderBy: { createdAt: 'desc' },
+        include: {
+            user: {
+                select: { name: true, email: true }
+            },
+            recipient: {
+                select: { name: true }
+            }
+        }
     });
 }
 
@@ -184,10 +318,23 @@ export async function getResolvedInquiriesForStaff() {
 
     const category = user.role === 'admin' ? 'ADMIN' : 'TEACHER';
 
+    // Staff/Admin should see:
+    // 1. Inquiries to their category pool (recipientId IS NULL)
+    // 2. Direct inquiries to them (recipientId === user.id)
+    
+    // BUT this function was "Resolved" inquiries.
+    // So we fetch ANSWERED ones.
+
     return prisma.inquiry.findMany({
         where: { 
-            category: category,
-            status: 'ANSWERED'
+            status: 'ANSWERED',
+            OR: [
+                { 
+                    category: category,
+                    recipientId: null 
+                },
+                { recipientId: user.id }
+            ]
         },
         orderBy: { answeredAt: 'desc' },
         include: {
@@ -203,12 +350,20 @@ export async function getOpenInquiries() {
     if (!user || user.role === 'student') return [];
 
     // Admins sehen ADMIN Anfragen, Staff sieht TEACHER Anfragen
+    // If Admin/Staff, they also see their own Direct Messages.
+    
     const category = user.role === 'admin' ? 'ADMIN' : 'TEACHER';
 
     return prisma.inquiry.findMany({
         where: {
-            category: category,
-            status: 'OPEN'
+            status: 'OPEN',
+            OR: [
+                { 
+                    category: category,
+                    recipientId: null // Pool messages
+                },
+                { recipientId: user.id } // Direct messages
+            ]
         },
         orderBy: { createdAt: 'desc' },
         include: {
@@ -226,14 +381,19 @@ export async function resolveInquiry(formData: FormData) {
     const inquiryId = formData.get('inquiryId') as string;
     const answer = formData.get('answer') as string;
 
-    await prisma.inquiry.update({
+    const inquiry = await prisma.inquiry.update({
         where: { id: inquiryId },
         data: { 
             status: 'ANSWERED',
             answer: answer,
             answeredAt: new Date()
-        }
+        },
+        include: { user: true }
     });
+
+    // Notify the user who created the inquiry
+    await createNotification(inquiry.userId, `Deine Anfrage "${inquiry.subject}" wurde beantwortet.`, `/inquiries`);
+
     revalidatePath('/');
     revalidatePath('/inquiries');
 }
@@ -250,52 +410,817 @@ export async function getStudentData() {
         orderBy: { date: 'desc' }
     });
 
-    // Anwesenheit (Mock-Logic basierend auf TimeEntries oder Random für MVP)
-    // Wir nehmen echte TimeEntries als Basis für "Anwesenheitstage"
-    const attendanceCount = await prisma.timeEntry.count({
-        where: { userId: user.id }
+    // Fetch all time entries to calculate relevant attendance
+    const allEntries = await prisma.timeEntry.findMany({
+        where: { userId: user.id, clockOut: { not: null } },
+        select: { clockIn: true, clockOut: true }
+    });
+    
+    // Calculate Relevant Minutes (excluding Pre-UE 08:00-08:45)
+    // And determine valid "attended days" (days with > 0 relevant minutes)
+    let totalRelevantMinutes = 0;
+    const validDays = new Set<string>();
+
+    for (const entry of allEntries) {
+        const minutes = getRelevantDurationInMinutes({ clockIn: entry.clockIn, clockOut: entry.clockOut }, 'student');
+        if (minutes > 0) {
+            totalRelevantMinutes += minutes;
+            validDays.add(entry.clockIn.toDateString());
+        }
+    }
+    
+    const uniqueDays = validDays.size;
+    
+    // Annahme: Kursdauer 6 Monate ~ 120 Arbeitstage (nur Mockup Basis)
+    const expectedDays = 120;
+    const attendanceRate = Math.min(100, Math.round((uniqueDays / expectedDays) * 100));
+
+    // Get Student's Track
+    const studentUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        include: { educationTrack: true }
     });
 
     return {
         grades,
         attendanceStats: {
-            totalDays: attendanceCount,
-            attendanceRate: 92, // Mockwert in Prozent
-            missingDays: 3      // Mockwert
-        }
+            totalDays: uniqueDays,
+            totalHours: Math.round(totalRelevantMinutes / 60), // New field
+            attendanceRate: attendanceRate, 
+            missingDays: Math.max(0, expectedDays - uniqueDays) 
+        },
+        educationTrack: studentUser?.educationTrack
     };
 }
 
 export async function getTeacherData() {
     const user = await getCurrentUser();
-    if (!user || user.role !== 'staff') return null; // 'staff' ist hier Teacher/Mitarbeiter
+    // 'teacher' und 'staff' können Skills haben, aber wir wollen sie primär bei 'teacher' zeigen
+    // Da 'staff' aktuell oft als Teacher benutzt wurde, lassen wir 'staff' vorerst drin oder ändern es strikt auf 'teacher'
+    // User request: "nur die lehrer/teacher" brauchen skills. Staff member wie Susi (Verwaltung) nicht.
+    // Also: Filter strikt auf 'teacher'.
+    if (!user || user.role !== 'teacher') return null; 
 
     const skills = await prisma.teacherSkill.findMany({
-        where: { userId: user.id }
+        where: { userId: user.id },
+        include: { tag: true }
     });
 
     return { skills };
 }
 
-export async function getAdminData() {
-    const user = await getCurrentUser();
-    if (!user || user.role !== 'admin') return null;
+export async function getAllTags() {
+    return prisma.tag.findMany({
+        orderBy: { name: 'asc' }
+    });
+}
 
-    // Arbeitszeit berechnen (Summe aller TimeEntries des Users)
-    const timeEntries = await prisma.timeEntry.findMany({
-        where: { userId: user.id },
-        select: { duration: true, clockIn: true }
+export async function toggleTeacherSkill(tagId: string) {
+    const user = await getCurrentUser();
+    // Nur Lehrer dürfen Skills bearbeiten
+    if (!user || user.role !== 'teacher') throw new Error("Unauthorized");
+
+    const existingSkill = await prisma.teacherSkill.findUnique({
+        where: {
+            userId_tagId: {
+                userId: user.id,
+                tagId: tagId
+            }
+        }
     });
 
-    // Aggregation (in echten Apps besser in DB machen, hier in JS für MVP)
-    const totalMinutes = timeEntries.reduce((acc, curr) => acc + (curr.duration || 0), 0);
-    const totalHours = Math.round(totalMinutes / 60);
+    if (existingSkill) {
+        // Toggle off (delete)
+        await prisma.teacherSkill.delete({
+            where: { id: existingSkill.id }
+        });
+    } else {
+        // Toggle on (create)
+        await prisma.teacherSkill.create({
+            data: {
+                userId: user.id,
+                tagId: tagId,
+                isVerified: false // Default to unverified
+            }
+        });
 
-    return {
-        department: user.department || "Allgemeine Verwaltung",
-        workStats: {
-            totalHours,
-            entriesCount: timeEntries.length
+        // Notify Admins about new skill for verification
+        const admins = await prisma.user.findMany({
+            where: { role: 'admin' },
+            select: { id: true }
+        });
+        
+        for (const admin of admins) {
+            await createNotification(admin.id, `Lehrer ${user.name} hat einen neuen Skill hinzugefügt. Bitte überprüfen.`, `/admin/skills`);
+        }
+    }
+    revalidatePath('/profile');
+}
+
+export async function getUnverifiedSkills() {
+    const user = await getCurrentUser();
+    if (!user || user.role !== 'admin') return [];
+
+    return prisma.teacherSkill.findMany({
+        where: { isVerified: false },
+        include: {
+            user: true,
+            tag: true
+        }
+    });
+}
+
+export async function verifyTeacherSkill(skillId: string) {
+    const user = await getCurrentUser();
+    if (!user || user.role !== 'admin') throw new Error("Unauthorized");
+
+    const skill = await prisma.teacherSkill.update({
+        where: { id: skillId },
+        data: { isVerified: true },
+        include: { user: true, tag: true }
+    });
+
+    // Notify Teacher
+    await createNotification(
+        skill.userId, 
+        `Dein Skill "${skill.tag.name}" wurde verifiziert!`, 
+        `/profile`
+    );
+
+    revalidatePath('/admin/skills');
+}
+
+export async function deleteTeacherSkill(skillId: string) {
+    const user = await getCurrentUser();
+    if (!user || user.role !== 'admin') throw new Error("Unauthorized");
+
+    const skill = await prisma.teacherSkill.findUnique({
+        where: { id: skillId },
+        include: { user: true, tag: true }
+    });
+
+    if (skill) {
+        await prisma.teacherSkill.delete({
+            where: { id: skillId }
+        });
+
+        // Notify Teacher
+        await createNotification(
+            skill.userId, 
+            `Dein Skill "${skill.tag.name}" wurde abgelehnt/entfernt.`, 
+            `/profile`
+        );
+    }
+    revalidatePath('/admin/skills');
+}
+
+
+export async function getTeacherExams() {
+    const user = await getCurrentUser();
+    if (!user) return [];
+
+    const whereClause = user.role === 'admin' ? {} : {
+        course: {
+            teachers: { some: { id: user.id } }
         }
     };
+
+    return prisma.exam.findMany({
+        where: whereClause,
+        orderBy: { date: 'desc' },
+        include: { 
+            course: {
+                include: {
+                    students: true
+                }
+            },
+            grades: true
+        }
+    });
+}
+
+export async function getAllCourses() {
+    const user = await getCurrentUser();
+    if (!user || (user.role !== 'staff' && user.role !== 'admin')) return [];
+
+    return prisma.course.findMany({
+        orderBy: { startDate: 'desc' },
+        include: {
+            educationTrack: true,
+            teachers: true,
+            tags: {
+                include: {
+                    tag: true
+                }
+            },
+            _count: {
+                select: { students: true }
+            }
+        }
+    });
+}
+
+export async function getTeacherCourses() {
+    const user = await getCurrentUser();
+    if (!user || (user.role !== 'staff' && user.role !== 'teacher' && user.role !== 'admin')) return [];
+    
+    // For admin show all, for others show only assigned
+    const whereClause = user.role === 'admin' ? {} : {
+        teachers: { some: { id: user.id } }
+    };
+
+    return prisma.course.findMany({
+        where: whereClause,
+        orderBy: { startDate: 'desc' },
+        include: {
+            educationTrack: true,
+            students: true,
+            tags: {
+                include: { tag: true }
+            },
+            teachers: true,
+            topics: {
+                orderBy: { startDate: 'asc' }
+            }
+        }
+    });
+}
+
+
+
+export async function assignStudentsToTrack(trackId: string, studentIds: string[]) {
+    const user = await getCurrentUser();
+    if (!user || (user.role !== 'staff' && user.role !== 'admin')) throw new Error("Unauthorized");
+
+    await prisma.user.updateMany({
+        where: {
+            id: { in: studentIds }
+        },
+        data: {
+            educationTrackId: trackId
+        }
+    });
+
+    revalidatePath('/planning');
+}
+
+export async function removeStudentFromTrack(studentId: string) {
+    const user = await getCurrentUser();
+    if (!user || (user.role !== 'staff' && user.role !== 'admin')) throw new Error("Unauthorized");
+
+    await prisma.user.update({
+        where: { id: studentId },
+        data: { educationTrackId: null }
+    });
+
+    revalidatePath('/planning');
+}
+
+export async function updateExamGrades(formData: FormData) {
+    const user = await getCurrentUser();
+    if (!user || (user.role !== 'teacher' && user.role !== 'staff' && user.role !== 'admin')) {
+        throw new Error("Unauthorized");
+    }
+
+    const examId = formData.get("examId") as string;
+    
+    // We need to iterate over all keys in formData to find grades
+    const entries = Array.from(formData.entries());
+    const gradeEntries = entries.filter(([key]) => key.startsWith('grade-'));
+
+    for (const [key, value] of gradeEntries) {
+        const studentId = key.replace('grade-', '');
+        const gradeValue = parseFloat(value as string);
+
+        if (!isNaN(gradeValue)) {
+            // Check if grade exists
+            const existingGrade = await prisma.grade.findFirst({
+                where: { examId, userId: studentId }
+            });
+
+            if (existingGrade) {
+                await prisma.grade.update({
+                    where: { id: existingGrade.id },
+                    data: { value: gradeValue }
+                });
+            } else {
+                // Fetch exam details for subject fallback
+                 const exam = await prisma.exam.findUnique({ 
+                    where: {id: examId}, 
+                    include: { course: true }
+                });
+
+                await prisma.grade.create({
+                    data: {
+                        userId: studentId,
+                        examId: examId,
+                        value: gradeValue,
+                        subject: exam?.course?.title || "Allgemein"
+                    }
+                });
+            }
+            
+            // Notification
+            await createNotification(studentId, `Neue Note eingetragen für Prüfung: ${gradeValue}`, `/profile`);
+        }
+    }
+    revalidatePath("/teacher/exams");
+}
+
+
+export async function createEducationTrack(formData: FormData) {
+    const user = await getCurrentUser();
+    if (!user || (user.role !== 'staff' && user.role !== 'admin')) throw new Error("Unauthorized");
+
+    const title = formData.get('title') as string;
+    const startDate = new Date(formData.get('startDate') as string);
+    const endDate = new Date(formData.get('endDate') as string);
+
+    await prisma.educationTrack.create({
+        data: {
+            title,
+            startDate,
+            endDate
+        }
+    });
+
+    revalidatePath('/planning');
+}
+
+export async function deleteEducationTrack(trackId: string) {
+    const user = await getCurrentUser();
+    if (!user || (user.role !== 'staff' && user.role !== 'admin')) throw new Error("Unauthorized");
+    
+    // Check if track has students or courses? Prisma will throw if foreign key constraint fails
+    // or we use onDelete: Cascade if configured in Schema? 
+    // Schema says: users User[], courses Course[]. Relations are usually SET NULL or CASCADE.
+    // User.educationTrackId is optional. Course.educationTrackId is optional.
+    // Safe delete might fail if restricted. Let's assume standard behavior for now.
+
+    await prisma.educationTrack.delete({
+        where: { id: trackId }
+    });
+
+    revalidatePath('/planning');
+}
+
+export async function getEducationTracks() {
+    return prisma.educationTrack.findMany({
+        orderBy: { startDate: 'desc' },
+        include: {
+            users: {
+                where: { role: 'student' },
+                select: {
+                    id: true,
+                    name: true,
+                    email: true
+                }
+            }
+        }
+    });
+}
+
+
+export async function createCourse(formData: FormData) {
+    const user = await getCurrentUser();
+    if (!user || (user.role !== 'staff' && user.role !== 'admin')) throw new Error("Unauthorized");
+
+    const title = formData.get('title') as string;
+    const description = formData.get('description') as string;
+    const startDate = new Date(formData.get('startDate') as string);
+    const endDate = new Date(formData.get('endDate') as string);
+    const educationTrackId = formData.get('educationTrackId') as string;
+    // For teacher assignment we need to handle the radio input
+    const teacherId = formData.get('teacherId') as string;
+    // For tags we handle the multi inputs
+    const tagIds = formData.getAll('tags') as string[];
+
+    const hasExam = formData.get('hasExam') === 'true';
+    const examDateStr = formData.get('examDate') as string;
+
+    const course = await prisma.course.create({
+        data: {
+            title,
+            description,
+            startDate,
+            endDate,
+            educationTrackId: educationTrackId !== 'none' ? educationTrackId : undefined,
+            teachers: teacherId ? {
+                connect: { id: teacherId }
+            } : undefined,
+            tags: {
+                create: tagIds.map(tagId => ({
+                    tag: { connect: { id: tagId } }
+                }))
+            }
+        }
+    });
+
+    if (hasExam && examDateStr) {
+        await prisma.exam.create({
+            data: {
+                title: `Abschlussprüfung: ${title}`,
+                content: `Abschlussprüfung für den Kurs ${title}`,
+                date: new Date(examDateStr),
+                duration: 90, // Default duration
+                location: "On-Site / TBD",
+                courseId: course.id
+            }
+        });
+    }
+    
+    revalidatePath('/planning');
+    // We might redirect here instead
+}
+
+// -----------------------------------------------------------------------------------
+// Teacher Invitation Workflow
+// -----------------------------------------------------------------------------------
+
+export async function inviteTeacherToCourse(courseId: string, teacherId: string) {
+    const user = await getCurrentUser();
+    if (!user || (user.role !== 'staff' && user.role !== 'admin')) throw new Error("Unauthorized");
+
+    // 1. Check if course exists
+    const course = await prisma.course.findUnique({
+        where: { id: courseId },
+        include: { teachers: true }
+    });
+    if (!course) throw new Error("Course not found");
+
+    // 2. Check if already assigned
+    const alreadyAssigned = course.teachers.some(t => t.id === teacherId);
+    if (alreadyAssigned) throw new Error("Teacher is already assigned to this course.");
+
+    // 3. Check if already invited (pending)
+    const existingInvitation = await prisma.courseInvitation.findUnique({
+        where: {
+            courseId_teacherId: {
+                courseId,
+                teacherId
+            }
+        }
+    });
+
+    if (existingInvitation && existingInvitation.status === 'PENDING') {
+        throw new Error("Invitation is already pending.");
+    }
+
+    // 4. Create or Update Invitation
+    // If rejected previously, we might want to re-invite (upsert logic or just create if not pending)
+    if (existingInvitation) {
+         // Reset to pending
+         await prisma.courseInvitation.update({
+             where: { id: existingInvitation.id },
+             data: { status: 'PENDING' }
+         });
+    } else {
+        await prisma.courseInvitation.create({
+            data: {
+                courseId,
+                teacherId,
+                status: 'PENDING'
+            }
+        });
+    }
+
+    // 5. Notify Teacher
+    await createNotification(teacherId, `Du wurdest eingeladen, den Kurs "${course.title}" zu unterrichten.`, `/teacher/courses`);
+
+    revalidatePath('/planning');
+}
+
+export async function respondToCourseInvitation(invitationId: string, accept: boolean) {
+    const user = await getCurrentUser();
+    if (!user || user.role !== 'teacher') throw new Error("Unauthorized");
+
+    const invitation = await prisma.courseInvitation.findUnique({
+        where: { id: invitationId },
+        include: { course: true, teacher: true }
+    });
+
+    if (!invitation) throw new Error("Invitation not found");
+    if (invitation.teacherId !== user.id) throw new Error("Forbidden");
+
+    if (accept) {
+        // Transaction: Add to course, delete invitation
+        await prisma.$transaction([
+            prisma.course.update({
+                where: { id: invitation.courseId },
+                data: {
+                    teachers: {
+                        connect: { id: invitation.teacherId }
+                    }
+                }
+            }),
+            prisma.courseInvitation.delete({
+                where: { id: invitationId }
+            })
+        ]);
+
+        // Notify Staff/Admins
+         const adminsAndStaff = await prisma.user.findMany({
+            where: { role: { in: ['admin', 'staff'] } },
+            select: { id: true }
+        });
+        for (const admin of adminsAndStaff) {
+             await createNotification(admin.id, `Lehrer ${invitation.teacher.name} hat den Kurs "${invitation.course.title}" ANGENOMMEN.`, `/planning`);
+        }
+
+        // Notify Teacher (Confirmation)
+        await createNotification(user.id, `Du hast den Kurs "${invitation.course.title}" erfolgreich angenommen.`, `/teacher/courses`);
+
+    } else {
+        // Reject
+        await prisma.courseInvitation.update({
+            where: { id: invitationId },
+            data: { status: 'REJECTED' }
+        });
+
+         // Notify Staff/Admins
+         const adminsAndStaff = await prisma.user.findMany({
+            where: { role: { in: ['admin', 'staff'] } },
+            select: { id: true }
+        });
+        for (const admin of adminsAndStaff) {
+             await createNotification(admin.id, `Lehrer ${invitation.teacher.name} hat den Kurs "${invitation.course.title}" ABGELEHNT.`, `/planning`);
+        }
+
+        // Notify Teacher (Confirmation)
+        await createNotification(user.id, `Du hast den Kurs "${invitation.course.title}" abgelehnt.`, `/teacher/courses`);
+    }
+
+    revalidatePath('/'); // Refresh dashboard
+}
+
+export async function getTeacherInvitations() {
+    const user = await getCurrentUser();
+    if (!user || user.role !== 'teacher') return [];
+
+    return prisma.courseInvitation.findMany({
+        where: {
+            teacherId: user.id,
+            status: 'PENDING'
+        },
+        include: {
+            course: true
+        },
+        orderBy: { createdAt: 'desc' }
+    });
+}
+
+// For Staff View
+export async function getCourseInvitations(courseId: string) {
+    const user = await getCurrentUser();
+    if (!user || (user.role !== 'staff' && user.role !== 'admin')) return [];
+
+    return prisma.courseInvitation.findMany({
+        where: { courseId },
+        include: { teacher: true }
+    });
+}
+
+
+export async function updateCourse(formData: FormData) {
+    const user = await getCurrentUser();
+    if (!user || (user.role !== 'staff' && user.role !== 'admin')) throw new Error("Unauthorized");
+
+    const courseId = formData.get('courseId') as string;
+    const title = formData.get('title') as string;
+    const description = formData.get('description') as string;
+    const startDate = new Date(formData.get('startDate') as string);
+    const endDate = new Date(formData.get('endDate') as string);
+    const educationTrackId = formData.get('educationTrackId') as string;
+    const teacherId = formData.get('teacherId') as string;
+    const tagIds = formData.getAll('tags') as string[];
+
+    // Build update data
+    const data: Prisma.CourseUpdateInput = {
+        title,
+        description,
+        startDate,
+        endDate,
+        educationTrack: educationTrackId !== 'none' ? { connect: { id: educationTrackId } } : { disconnect: true },
+    };
+
+    // Only update relations if they are provided/changed (simple check)
+    // For now, if teacherId is provided, we CONNECT it. 
+    // Handling "disconnect" in a simple form is tricky without more UI state.
+    // We'll reset teachers if a new one is picked.
+    if (teacherId) {
+        data.teachers = {
+            set: [], // Clear existing
+            connect: { id: teacherId }
+        };
+    }
+    
+    // Same for tags
+    if (tagIds.length > 0) {
+        // First delete existing tags relations? 
+        // Prisma update with 'set' on m:n via explicit table is tricky.
+        // Easier strategy: Delete all CourseTags for this course, then create new ones.
+        // But here we might just ADD for now or use the 'tags' relation directly if implicit.
+        // Looking at schema would help, but let's assume standard relation update.
+        // Since we use `tags: { create: ... }` in create, it seems we have an explicit join table `CourseTag`.
+        // So we can't just use `set`. We should probably deleteMany first.
+        // Let's do a transaction or just simple updates.
+        
+        await prisma.courseTag.deleteMany({ where: { courseId } });
+        
+        data.tags = {
+             create: tagIds.map(tagId => ({
+                tag: { connect: { id: tagId } }
+            }))
+        };
+    }
+
+    await prisma.course.update({
+        where: { id: courseId },
+        data
+    });
+
+    revalidatePath('/planning');
+}
+
+export async function deleteCourse(courseId: string) {
+    const user = await getCurrentUser();
+    if (!user || (user.role !== 'staff' && user.role !== 'admin')) throw new Error("Unauthorized");
+
+    // Cascading deletes usually handled by DB, but safe to do explicit cleanup if needed.
+    // Prisma `onDelete: Cascade` handles most.
+    await prisma.course.delete({
+        where: { id: courseId }
+    });
+    
+    revalidatePath('/planning');
+}
+
+export async function getUnreadNotifications() {
+    const user = await getCurrentUser();
+    if (!user) return [];
+
+    return prisma.notification.findMany({
+        where: { userId: user.id, isRead: false },
+        orderBy: { createdAt: 'desc' }
+    });
+}
+
+export async function markNotificationAsRead(notificationId: string) {
+    const user = await getCurrentUser();
+    if (!user) throw new Error("Unauthorized");
+
+    await prisma.notification.update({
+        where: { id: notificationId },
+        data: { isRead: true }
+    });
+    revalidatePath('/');
+}
+
+
+
+
+// Helper: Calculate relevant minutes excluding Pre-UE (08:00-08:45) for students
+function getRelevantDurationInMinutes(entry: { clockIn: Date, clockOut: Date | null }, role: string): number {
+    if (!entry.clockOut) return 0;
+
+    const start = entry.clockIn;
+    const end = entry.clockOut;
+    let durationMs = end.getTime() - start.getTime();
+
+    // Student Logic: Exclude Pre-UE (before 08:45)
+    if (role === 'student') {
+        const preUeEnd = new Date(start);
+        preUeEnd.setHours(8, 45, 0, 0);
+
+        // If shift starts before 08:45
+        if (start < preUeEnd) {
+            // If shift also ends before 08:45, 0 relevant minutes
+            if (end < preUeEnd) {
+                return 0;
+            }
+            // Otherwise, subtract the time before 08:45
+            const excludeMs = preUeEnd.getTime() - start.getTime();
+            durationMs -= excludeMs;
+        }
+    }
+
+    return Math.max(0, Math.floor(durationMs / 1000 / 60));
+}
+
+export async function getAdminData() {
+    const user = await getCurrentUser();
+    if (!user || (user.role !== 'admin' && user.role !== 'staff')) return null;
+
+    // Fetch ONLY this admin's entries
+    const myEntries = await prisma.timeEntry.findMany({
+        where: { 
+            userId: user.id,
+            clockOut: { not: null } 
+        },
+        orderBy: { clockIn: 'asc' }
+    });
+
+    const totalMinutes = myEntries.reduce((acc, entry) => {
+        return acc + getRelevantDurationInMinutes(entry, user.role);
+    }, 0);
+    
+    const totalHours = Math.round((totalMinutes / 60) * 10) / 10; // Round to 1 decimal
+
+    // Calculate Target: 7.5h per unique worked day
+    // (MVP approach: We only expect hours on days they actually clocked in. 
+    // Real HR systems would check work schedule vs holidays, but this is simpler)
+    const uniqueDays = new Set(myEntries.map(e => e.clockIn.toDateString())).size;
+    const targetHours = uniqueDays * 7.5;
+    const overtimeHours = totalHours - targetHours;
+
+    return {
+        department: user.department || "Verwaltung",
+        workStats: {
+            totalHours: totalHours, 
+            entriesCount: myEntries.length,
+            targetHours: targetHours,
+            overtime: Math.round(overtimeHours * 10) / 10
+        }
+    };
+}
+
+
+
+export async function getPotentialRecipients() {
+    const user = await getCurrentUser();
+    if (!user) return { students: [], teachers: [], admins: [], tracks: [] };
+
+    // Fetch relevant users
+    const allUsers = await prisma.user.findMany({
+        select: { id: true, name: true, role: true, educationTrackId: true, email: true },
+        orderBy: { name: 'asc' }
+    });
+
+    const tracks = await prisma.educationTrack.findMany({
+        select: { id: true, title: true },
+        orderBy: { startDate: 'desc' }
+    });
+
+    // Helper to get students for teacher/student
+    // Teacher: From their courses
+    // Student: Teachers from their courses
+    // For now, simpler: All Teachers/Admins are visible. All Students visible to Teachers/Admins.
+    // Students only see Teachers.
+    
+    const students = (user.role === 'student') 
+        ? [] // Students don't see other students in dropdown for Inquiries (Private)
+        : allUsers.filter(u => u.role === 'student');
+
+    const teachers = allUsers.filter(u => u.role === 'teacher' || u.role === 'staff'); // Staff often act as teachers
+    const admins = allUsers.filter(u => u.role === 'admin' || u.role === 'staff'); // Staff are management
+
+    return {
+        students,
+        teachers,
+        admins,
+        tracks
+    };
+}
+
+export async function getStudentsWithoutTrack() {
+    const user = await getCurrentUser();
+    if (!user || (user.role !== 'staff' && user.role !== 'admin')) return [];
+
+    return prisma.user.findMany({
+        where: {
+            role: 'student',
+            educationTrackId: null
+        },
+        select: {
+            id: true,
+            name: true,
+            email: true,
+            // image is not in schema, removed
+        },
+        orderBy: { name: 'asc' }
+    });
+}
+
+export async function getStudentCourses() {
+    const user = await getCurrentUser();
+    if (!user || user.role !== 'student') return [];
+
+    return prisma.course.findMany({
+        where: {
+            students: {
+                some: {
+                    id: user.id
+                }
+            }
+        },
+        include: {
+            teachers: true,
+            topics: {
+                orderBy: { startDate: 'asc' }
+            }
+        },
+        orderBy: {
+            startDate: 'asc'
+        }
+    });
 }

@@ -10,9 +10,7 @@ import {
 } from "@/components/ui/card";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, BookOpen, Clock, MapPin } from "lucide-react";
+import { BookOpen, Clock, MapPin } from "lucide-react";
 
 export default async function StudentExamsPage() {
   const user = await getCurrentUser();

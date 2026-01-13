@@ -229,19 +229,40 @@ exports.Prisma.InquiryScalarFieldEnum = {
   answeredAt: 'answeredAt'
 };
 
+exports.Prisma.NotificationScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  message: 'message',
+  isRead: 'isRead',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.TagScalarFieldEnum = {
+  id: 'id',
+  name: 'name'
+};
+
+exports.Prisma.CourseTagScalarFieldEnum = {
+  id: 'id',
+  courseId: 'courseId',
+  tagId: 'tagId'
+};
+
 exports.Prisma.GradeScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
   examId: 'examId',
   subject: 'subject',
   value: 'value',
-  date: 'date'
+  date: 'date',
+  updatedAt: 'updatedAt'
 };
 
 exports.Prisma.TeacherSkillScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
-  subject: 'subject',
+  tagId: 'tagId',
+  isVerified: 'isVerified',
   isActive: 'isActive'
 };
 
@@ -268,6 +289,9 @@ exports.Prisma.ModelName = {
   BulletinPost: 'BulletinPost',
   Exam: 'Exam',
   Inquiry: 'Inquiry',
+  Notification: 'Notification',
+  Tag: 'Tag',
+  CourseTag: 'CourseTag',
   Grade: 'Grade',
   TeacherSkill: 'TeacherSkill'
 };

@@ -7,13 +7,13 @@ async function main() {
   console.log('Starte Datenbank-Update...');
 
   // 1. Tags (TeacherSkills) definieren
-  const tags = [
-    "Planen und Analysieren", "Programmieren", "Testen", "Dokumentieren", // FIAE Kernkompetenzen
-    "BWL", "Rechnungswesen", 
-    "IT-Sicherheit", "Netzwerke", 
-    "Test", "Externer",
-    "SAP", "Cloud"
-  ];
+  // const tags = [
+  //   "Planen und Analysieren", "Programmieren", "Testen", "Dokumentieren", // FIAE Kernkompetenzen
+  //   "BWL", "Rechnungswesen", 
+  //   "IT-Sicherheit", "Netzwerke", 
+  //   "Test", "Externer",
+  //   "SAP", "Cloud"
+  // ];
 
   // 2. Lehrer Updates / Erstellung
   
@@ -29,40 +29,52 @@ async function main() {
       }
     });
   }
-  // BWL Tag zuweisen
-  await prisma.teacherSkill.create({ data: { userId: drBilanz.id, subject: 'BWL' } }).catch(() => {});
+   // BWL Tag zuweisen
+   const bwlTag = await prisma.tag.upsert({
+     where: { name: 'BWL' },
+     update: {},
+     create: { name: 'BWL' }
+   });
+   await prisma.teacherSkill.create({ data: { userId: drBilanz.id, tagId: bwlTag.id } }).catch(() => {});
 
-  // Prof. Dr. Code (IT)
-  let profCode = await prisma.user.findFirst({ where: { email: 'code@cc-intranet.de' } });
-  if (!profCode) {
-    profCode = await prisma.user.create({
-      data: {
-        name: 'Prof. Dr. Code',
-        email: 'code@cc-intranet.de',
-        role: 'staff',
-        department: 'IT'
-      }
-    });
-  }
-  // IT/Programming Tags
-  await prisma.teacherSkill.create({ data: { userId: profCode.id, subject: 'Programmieren' } }).catch(() => {});
-  await prisma.teacherSkill.create({ data: { userId: profCode.id, subject: 'IT-Sicherheit' } }).catch(() => {});
+   // Prof. Dr. Code (IT)
+   let profCode = await prisma.user.findFirst({ where: { email: 'code@cc-intranet.de' } });
+   if (!profCode) {
+     profCode = await prisma.user.create({
+       data: {
+         name: 'Prof. Dr. Code',
+         email: 'code@cc-intranet.de',
+         role: 'staff',
+         department: 'IT'
+       }
+     });
+   }
+   // IT/Programming Tags
+   const progTag = await prisma.tag.upsert({ where: { name: 'Programmieren' }, update: {}, create: { name: 'Programmieren' } });
+   const secTag = await prisma.tag.upsert({ where: { name: 'IT-Sicherheit' }, update: {}, create: { name: 'IT-Sicherheit' } });
+   
+   await prisma.teacherSkill.create({ data: { userId: profCode.id, tagId: progTag.id } }).catch(() => {});
+   await prisma.teacherSkill.create({ data: { userId: profCode.id, tagId: secTag.id } }).catch(() => {});
 
-  // Test Lehrer (Externer)
-  let testLehrer = await prisma.user.findFirst({ where: { email: 'extern@cc-intranet.de' } });
-  if (!testLehrer) {
-    testLehrer = await prisma.user.create({
-      data: {
-        name: 'Test Lehrer',
-        email: 'extern@cc-intranet.de',
-        role: 'staff',
-        department: 'Extern'
-      }
-    });
-  }
-  await prisma.teacherSkill.create({ data: { userId: testLehrer.id, subject: 'Externer' } }).catch(() => {});
-  await prisma.teacherSkill.create({ data: { userId: testLehrer.id, subject: 'SAP' } }).catch(() => {});
-  await prisma.teacherSkill.create({ data: { userId: testLehrer.id, subject: 'Cloud' } }).catch(() => {});
+   // Test Lehrer (Externer)
+   let testLehrer = await prisma.user.findFirst({ where: { email: 'extern@cc-intranet.de' } });
+   if (!testLehrer) {
+     testLehrer = await prisma.user.create({
+       data: {
+         name: 'Test Lehrer',
+         email: 'extern@cc-intranet.de',
+         role: 'staff',
+         department: 'Extern'
+       }
+     });
+   }
+   const extTag = await prisma.tag.upsert({ where: { name: 'Externer' }, update: {}, create: { name: 'Externer' } });
+   const sapTag = await prisma.tag.upsert({ where: { name: 'SAP' }, update: {}, create: { name: 'SAP' } });
+   const cloudTag = await prisma.tag.upsert({ where: { name: 'Cloud' }, update: {}, create: { name: 'Cloud' } });
+
+   await prisma.teacherSkill.create({ data: { userId: testLehrer.id, tagId: extTag.id } }).catch(() => {});
+   await prisma.teacherSkill.create({ data: { userId: testLehrer.id, tagId: sapTag.id } }).catch(() => {});
+   await prisma.teacherSkill.create({ data: { userId: testLehrer.id, tagId: cloudTag.id } }).catch(() => {});
 
 
   // 3. Kurs Zuweisungen (Mock-Daten)

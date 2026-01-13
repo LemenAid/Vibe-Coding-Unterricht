@@ -49,10 +49,12 @@ type Track = {
 }
 
 export function UserList({ initialUsers, tracks }: { initialUsers: User[], tracks: Track[] }) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [users, setUsers] = useState<User[]>(initialUsers)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+
 
   // Create Form State
   const [newUser, setNewUser] = useState({
@@ -135,7 +137,7 @@ export function UserList({ initialUsers, tracks }: { initialUsers: User[], track
             <DialogHeader>
               <DialogTitle>Add New User</DialogTitle>
               <DialogDescription>
-                Create a new user account. Click save when you're done.
+                Create a new user account. Click save when you&apos;re done.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreate} className="grid gap-4 py-4">

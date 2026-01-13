@@ -1,168 +1,108 @@
 import { getCurrentUser } from "@/lib/auth";
-import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card";
-import { format } from "date-fns";
-import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
+import { getTeacherExams, updateExamGrades } from "@/lib/actions";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { BookOpen, MapPin, Users } from "lucide-react";
-import { revalidatePath } from "next/cache";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { redirect } from "next/navigation";
 
 export default async function TeacherExamsPage() {
-  const user = await getCurrentUser();
-  if (!user || (user.role !== 'staff' && user.role !== 'admin')) {
-    redirect("/");
-  }
-
-  // 1. Hole alle Kurse des Lehrers (oder alle wenn Admin)
-  // 2. Hole alle abgeschlossenen Prüfungen dieser Kurse
-
-  const whereClause = user.role === 'admin' ? {} : {
-      course: {
-          teachers: { some: { id: user.id } }
-      }
-  };
-
-  const finishedExams = await prisma.exam.findMany({
-    where: {
-        ...whereClause,
-        date: { lt: new Date() } // Vergangene Prüfungen
-    },
-    orderBy: { date: 'desc' },
-    include: { 
-        course: {
-            include: {
-                students: true
-            }
-        },
-        grades: true
+    const user = await getCurrentUser();
+    if (!user || (user.role !== 'staff' && user.role !== 'admin' && user.role !== 'teacher')) {
+        redirect("/");
     }
-  });
 
-  async function saveGrade(formData: FormData) {
-      "use server";
-      const examId = formData.get("examId") as string;
-      const studentId = formData.get("studentId") as string;
-      const gradeValue = parseFloat(formData.get("grade") as string);
+    const exams = await getTeacherExams();
 
-      if (isNaN(gradeValue) || gradeValue < 1.0 || gradeValue > 6.0) {
-          // Error handling skipped for MVP
-          return; 
-      }
+    return (
+        <div className="space-y-6">
+            <div>
+                <h1 className="text-3xl font-bold tracking-tight">Prüfungsverwaltung</h1>
+                <p className="text-gray-500">Noten eintragen und Prüfungen verwalten.</p>
+            </div>
 
-      // Check if grade exists
-      const existingGrade = await prisma.grade.findFirst({
-          where: { examId, userId: studentId }
-      });
-
-      if (existingGrade) {
-          await prisma.grade.update({
-              where: { id: existingGrade.id },
-              data: { value: gradeValue }
-          });
-      } else {
-          // Wir brauchen das Subject (Fach) für die Grade Tabelle.
-          // Wir nehmen den Kurstitel als Fallback.
-          const exam = await prisma.exam.findUnique({ where: {id: examId}, include: { course: true }});
-          
-          await prisma.grade.create({
-              data: {
-                  userId: studentId,
-                  examId: examId,
-                  value: gradeValue,
-                  subject: exam?.course?.title || "Allgemein"
-              }
-          });
-      }
-      revalidatePath("/teacher/exams");
-  }
-
-  return (
-    <div className="p-6 space-y-8">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Prüfungsverwaltung</h1>
-          <p className="text-muted-foreground">
-            Noten eintragen für vergangene Prüfungen.
-          </p>
-        </div>
-      </div>
-
-      <div className="space-y-6">
-          {finishedExams.map(exam => (
-              <Card key={exam.id}>
-                  <CardHeader>
-                      <div className="flex justify-between">
-                        <div>
-                             <CardTitle>{exam.title}</CardTitle>
-                             <CardDescription>
-                                {exam.course?.title} • {format(exam.date, 'dd.MM.yyyy')}
-                             </CardDescription>
-                        </div>
-                        <Badge variant="outline">{exam.grades.length} / {exam.course?.students.length} Bewertet</Badge>
-                      </div>
-                  </CardHeader>
-                  <CardContent>
-                      <div className="rounded-md border">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-muted text-muted-foreground uppercase text-xs">
-                                <tr>
-                                    <th className="px-4 py-2">Schüler</th>
-                                    <th className="px-4 py-2">Email</th>
-                                    <th className="px-4 py-2 w-[150px]">Note</th>
-                                    <th className="px-4 py-2 w-[100px]">Aktion</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y">
-                                {exam.course?.students.map(student => {
-                                    const grade = exam.grades.find(g => g.userId === student.id);
-                                    return (
-                                        <tr key={student.id} className="bg-card hover:bg-muted/50">
-                                            <td className="px-4 py-2 font-medium">{student.name}</td>
-                                            <td className="px-4 py-2 text-muted-foreground">{student.email}</td>
-                                            <form action={saveGrade}>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Meine Prüfungen</CardTitle>
+                    <CardDescription>
+                        Liste aller Prüfungen der Kurse, denen Sie zugewiesen sind.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {exams.length === 0 ? (
+                        <p className="text-gray-500">Keine Prüfungen gefunden.</p>
+                    ) : (
+                        <Accordion type="single" collapsible className="w-full">
+                            {exams.map((exam) => (
+                                <AccordionItem key={exam.id} value={exam.id}>
+                                    <AccordionTrigger className="hover:no-underline">
+                                        <div className="flex flex-col items-start gap-1 text-left">
+                                            <span className="font-semibold">{exam.title}</span>
+                                            <span className="text-xs text-gray-500">
+                                                {exam.course?.title} • {new Date(exam.date).toLocaleDateString()}
+                                            </span>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent>
+                                        <div className="pt-2">
+                                            <form action={updateExamGrades} className="space-y-4">
                                                 <input type="hidden" name="examId" value={exam.id} />
-                                                <input type="hidden" name="studentId" value={student.id} />
-                                                <td className="px-4 py-2">
-                                                    <input 
-                                                        type="number" 
-                                                        name="grade"
-                                                        step="0.1" 
-                                                        min="1.0" 
-                                                        max="6.0" 
-                                                        defaultValue={grade?.value}
-                                                        placeholder="-"
-                                                        className="w-16 p-1 border rounded text-center"
-                                                        required
-                                                    />
-                                                </td>
-                                                <td className="px-4 py-2">
-                                                    <Button size="sm" variant="ghost" type="submit">Speichern</Button>
-                                                </td>
+                                                
+                                                <div className="border rounded-md">
+                                                    <div className="grid grid-cols-3 gap-4 p-3 bg-slate-50 border-b text-sm font-medium text-gray-700">
+                                                        <div className="col-span-2">Schüler</div>
+                                                        <div>Note</div>
+                                                    </div>
+                                                    {/* We need to list students of the course here. 
+                                                        Ideally, `exam` should include course -> students. 
+                                                    */}
+                                                    {exam.course?.students.map((student) => {
+                                                        // Find existing grade if any
+                                                        const existingGrade = exam.grades.find(g => g.userId === student.id);
+                                                        
+                                                        return (
+                                                            <div key={student.id} className="grid grid-cols-3 gap-4 p-3 items-center border-b last:border-0">
+                                                                <div className="col-span-2 flex flex-col">
+                                                                    <span className="font-medium">{student.name}</span>
+                                                                    <span className="text-xs text-gray-500">{student.email}</span>
+                                                                </div>
+                                                                <div>
+                                                                    <Input 
+                                                                        type="number" 
+                                                                        step="0.1" 
+                                                                        min="1.0" 
+                                                                        max="6.0"
+                                                                        name={`grade-${student.id}`} 
+                                                                        defaultValue={existingGrade?.value}
+                                                                        placeholder="-"
+                                                                        className="w-20"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    {(!exam.course?.students || exam.course.students.length === 0) && (
+                                                         <div className="p-4 text-center text-sm text-gray-500">Keine Schüler in diesem Kurs.</div>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex justify-end">
+                                                    <Button type="submit">Noten Speichern</Button>
+                                                </div>
                                             </form>
-                                        </tr>
-                                    );
-                                })}
-                                {exam.course?.students.length === 0 && (
-                                    <tr><td colSpan={4} className="p-4 text-center text-muted-foreground">Keine Schüler in diesem Kurs.</td></tr>
-                                )}
-                            </tbody>
-                        </table>
-                      </div>
-                  </CardContent>
-              </Card>
-          ))}
-          {finishedExams.length === 0 && (
-              <p className="text-center text-muted-foreground py-10">Keine abgeschlossenen Prüfungen gefunden.</p>
-          )}
-      </div>
-    </div>
-  );
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            ))}
+                        </Accordion>
+                    )}
+                </CardContent>
+            </Card>
+        </div>
+    );
 }

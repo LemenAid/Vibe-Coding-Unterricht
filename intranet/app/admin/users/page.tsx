@@ -37,7 +37,8 @@ export default async function AdminUsersPage() {
 
   return (
     <div className="p-8">
-       <UserList initialUsers={serializedUsers as any} tracks={serializedTracks} />
+       <UserList initialUsers={serializedUsers} tracks={serializedTracks} />
     </div>
   );
 }
+

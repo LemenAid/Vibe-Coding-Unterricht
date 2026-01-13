@@ -12,7 +12,6 @@ import {
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
-import { revalidatePath } from "next/cache";
 
 export default async function TrackDetailPage({ params }: { params: Promise<{ trackId: string }> }) {
   const { trackId } = await params;

@@ -25,7 +25,7 @@ export async function createStudentAction(formData: FormData) {
   }
 
   try {
-    const newStudent = await prisma.user.create({
+    await prisma.user.create({
       data: {
         name,
         email,

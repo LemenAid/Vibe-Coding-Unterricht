@@ -1,8 +1,10 @@
 import { getCurrentUser } from "@/lib/auth";
-import { getStudentData, getTeacherData, getAdminData } from "@/lib/actions";
+import { getStudentData, getTeacherData, getAdminData, getAllTags, toggleTeacherSkill } from "@/lib/actions";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { Plus, X } from "lucide-react";
 
 export default async function ProfilePage() {
   const user = await getCurrentUser();
@@ -33,8 +35,8 @@ export default async function ProfilePage() {
 
       {/* Rollen-spezifische Inhalte */}
       {user.role === 'student' && <StudentProfile />}
-      {user.role === 'staff' && <TeacherProfile />}
-      {user.role === 'admin' && <AdminProfile />}
+      {user.role === 'teacher' && <TeacherProfile />}
+      {(user.role === 'admin' || user.role === 'staff') && <AdminProfile />}
     </div>
   );
 }
@@ -45,6 +47,32 @@ async function StudentProfile() {
 
   return (
     <div className="grid gap-6 md:grid-cols-2">
+      <Card className="md:col-span-2">
+          <CardHeader>
+              <CardTitle>Ausbildungsinformationen</CardTitle>
+          </CardHeader>
+          <CardContent>
+              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
+                  <div>
+                      <div className="text-sm font-medium text-muted-foreground">Aktueller Bildungsweg (Track)</div>
+                      <div className="text-xl font-bold mt-1">
+                          {data.educationTrack ? data.educationTrack.title : "Kein Track zugewiesen"}
+                      </div>
+                  </div>
+                   {data.educationTrack && (
+                       <Badge variant="outline" className="h-fit">
+                           {new Date(data.educationTrack.startDate).toLocaleDateString('de-DE')} - {new Date(data.educationTrack.endDate).toLocaleDateString('de-DE')}
+                       </Badge>
+                   )}
+                   {!data.educationTrack && (
+                       <Badge variant="destructive" className="h-fit">
+                           Nicht zugewiesen
+                       </Badge>
+                   )}
+              </div>
+          </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Leistungsübersicht</CardTitle>
@@ -95,33 +123,79 @@ async function StudentProfile() {
 
 async function TeacherProfile() {
   const data = await getTeacherData();
+  const allTags = await getAllTags();
+  
   if (!data) return null;
 
+  // Extract currently selected tag IDs for easy lookup
+  const selectedTagIds = new Set(data.skills.map(s => s.tagId));
+  
+  // Separate tags into selected and available
+  const availableTags = allTags.filter(tag => !selectedTagIds.has(tag.id));
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Lehrkompetenzen & Fächer</CardTitle>
-        <CardDescription>Aktive und inaktive Unterrichtsmodule</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-wrap gap-2">
-          {data.skills.length > 0 ? (
-            data.skills.map((skill) => (
-              <Badge 
-                key={skill.id} 
-                variant={skill.isActive ? "default" : "outline"}
-                className={!skill.isActive ? "text-gray-400 border-dashed" : ""}
-              >
-                {skill.subject}
-              </Badge>
-            ))
-          ) : (
-            <p className="text-sm text-gray-500">Keine Fächer hinterlegt.</p>
-          )}
-        </div>
-        <p className="mt-4 text-xs text-gray-400">* Ausgegraute Fächer sind aktuell nicht aktiv.</p>
-      </CardContent>
-    </Card>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Meine Kompetenzen</CardTitle>
+          <CardDescription>Aktuelle Fächer und Status</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {data.skills.length > 0 ? (
+              data.skills.map((skill) => (
+                <form key={skill.id} action={async () => {
+                  "use server";
+                  await toggleTeacherSkill(skill.tagId);
+                }}>
+                  <Badge 
+                    variant={skill.isVerified ? "default" : "secondary"}
+                    className={`cursor-pointer hover:bg-red-100 pr-1 ${!skill.isVerified ? "opacity-70 border-dashed" : ""}`}
+                  >
+                    {skill.tag.name}
+                    {!skill.isVerified && <span className="ml-1 text-[10px]">(Pending)</span>}
+                    <Button variant="ghost" size="icon" className="h-4 w-4 ml-1 hover:bg-transparent text-current hover:text-red-500">
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </Badge>
+                </form>
+              ))
+            ) : (
+              <p className="text-sm text-gray-500">Keine Fächer hinterlegt.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Kompetenzen hinzufügen</CardTitle>
+          <CardDescription>Wählen Sie weitere Fächer aus, die Sie unterrichten können.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2 max-h-60 overflow-y-auto p-2 border rounded-md">
+            {availableTags.map((tag) => (
+              <form key={tag.id} action={async () => {
+                "use server";
+                await toggleTeacherSkill(tag.id);
+              }}>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-8 text-xs gap-1 group"
+                >
+                  <Plus className="h-3 w-3 group-hover:text-green-600" />
+                  {tag.name}
+                </Button>
+              </form>
+            ))}
+            {availableTags.length === 0 && (
+               <p className="text-sm text-gray-500">Alle verfügbaren Fächer wurden bereits ausgewählt.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

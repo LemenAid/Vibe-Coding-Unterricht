@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -48,29 +47,95 @@ import {
   clockIn, 
   clockOut,
   createAnnouncement,
-  createInquiry,
   getOpenInquiries,
-  resolveInquiry
+  resolveInquiry,
+  getTeacherInvitations
 } from "@/lib/actions";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { CreateInquiryDialog } from "./inquiries/create-inquiry-dialog";
+import { TeacherInvitations } from "@/components/teacher-invitations";
+
+type Announcement = {
+  id: string;
+  title: string;
+  content: string;
+  author: string;
+  createdAt: Date;
+};
+
+type Inquiry = {
+    id: string;
+    subject: string;
+    message: string;
+    answer?: string;
+    user: { name: string; email: string };
+    createdAt: Date;
+};
 
 export default async function Home() {
   const user = await requireUser(); // Login Check
 
-  const announcements = await getAnnouncements();
+  // Mock News if empty (for visual filling)
+  let announcements = await getAnnouncements();
+  if (announcements.length === 0) {
+      const now = new Date();
+      announcements = [
+          { id: 'mock1', title: 'Wartungsarbeiten am Wochenende', content: 'Am kommenden Samstag werden Serverupdates durchgeführt. Der Zugriff kann zeitweise eingeschränkt sein.', author: 'IT Support', createdAt: now },
+          { id: 'mock2', title: 'Neue Corona-Regeln', content: 'Bitte beachten Sie die aktualisierten Hygienevorschriften im Eingangsbereich.', author: 'Verwaltung', createdAt: new Date(now.getTime() - 86400000) },
+          { id: 'mock3', title: 'Fundsachen im Sekretariat', content: 'Es wurden mehrere Regenschirme und Jacken abgegeben. Bitte zeitnah abholen.', author: 'Sekretariat', createdAt: new Date(now.getTime() - 172800000) },
+      ] as any[];
+  }
+
   const nextCourses = await getCourseEvents();
   const lastEntry = await getLastTimeEntry();
+  const isClockedIn = !!lastEntry && !lastEntry.clockOut;
+  const teacherInvitations = await getTeacherInvitations();
+  // Logic: Everyone sees "Open Inquiries" relevant to them.
+  let openInquiries = await getOpenInquiries();
   
-  // Nur abrufen, wenn kein Student
-  const openInquiries = user.role !== 'student' ? await getOpenInquiries() : [];
-  
-  const isClockedIn = lastEntry && !lastEntry.clockOut;
+  // Mock Inquiries for Staff/Admin if empty (Requirement 4)
   const isStaffOrAdmin = user.role === 'admin' || user.role === 'staff';
+  if (isStaffOrAdmin && openInquiries.length === 0) {
+       openInquiries = [
+           { 
+               id: 'mock-inq-1', 
+               subject: 'Problem mit Login', 
+               message: 'Ich kann mich nicht im Prüfungssystem anmelden. Bitte um Hilfe.', 
+               user: { name: 'Max Musterschüler (Student)', email: 'max@student.com' },
+               createdAt: new Date()
+           },
+           { 
+               id: 'mock-inq-2', 
+               subject: 'Beamer in Raum 3 defekt', 
+               message: 'Der Beamer in Raum 304 flackert stark. Kann das geprüft werden?', 
+               user: { name: 'Herr Lehrer (Teacher)', email: 'teacher@cc.com' },
+               createdAt: new Date()
+           },
+           { 
+               id: 'mock-inq-3', 
+               subject: 'Urlaubsantrag', 
+               message: 'Ich würde gerne nächste Woche Freitag frei nehmen.', 
+               user: { name: 'Susi Sorglos (Staff)', email: 'susi@admin.com' },
+               createdAt: new Date()
+           }
+       ] as any;
+  }
 
   // --- Prüfungen basierend auf Rolle und Zuweisung ---
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let nextExams: any[] = [];
+  type ExamWithCourse = {
+      id: string;
+      title: string;
+      date: Date;
+      duration: number;
+      location?: string | null;
+      content?: string | null;
+      course: {
+          title: string;
+      } | null;
+  }
+  
+  let nextExams: ExamWithCourse[] = [];
   try {
     if (user.role === 'student') {
       nextExams = await prisma.exam.findMany({
@@ -128,46 +193,7 @@ export default async function Home() {
             </div>
             
             {/* Frage Einreichen Dialog - Nur für Studenten sichtbar (oder alle, wenn gewünscht) */}
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="gap-2">
-                    <HelpCircle size={16} /> Frage einreichen
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Frage stellen</DialogTitle>
-                  <DialogDescription>
-                    Sende eine Anfrage an das Lehrpersonal oder die Administration.
-                  </DialogDescription>
-                </DialogHeader>
-                <form action={createInquiry} className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="category">An wen?</Label>
-                         <Select name="category" required>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Wähle einen Empfänger" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="TEACHER">Lehrer / Dozenten</SelectItem>
-                            <SelectItem value="ADMIN">Administration / IT</SelectItem>
-                          </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="subject">Betreff</Label>
-                        <Input id="subject" name="subject" placeholder="Kurze Zusammenfassung" required />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="message">Deine Nachricht</Label>
-                        <Textarea id="message" name="message" placeholder="Beschreibe dein Anliegen..." required />
-                    </div>
-                    <DialogFooter>
-                        <Button type="submit">Absenden</Button>
-                    </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
+            <CreateInquiryDialog />
         </div>
       </div>
 
@@ -176,7 +202,187 @@ export default async function Home() {
         {/* Hauptspalte Links (4/7) */}
         <div className="space-y-6 lg:col-span-4">
             
-          {/* Zeiterfassung Widget */}
+          {/* TEACHER INVITATIONS WIDGET */}
+          {user.role === 'teacher' && teacherInvitations.length > 0 && (
+            <TeacherInvitations invitations={teacherInvitations} />
+          )}
+
+          {/* OFFENE ANFRAGEN WIDGET (Für ALLE Rollen) */}
+             <Card className="border-orange-200 bg-orange-50">
+               <CardHeader>
+                 <CardTitle className="flex items-center gap-2 text-orange-800">
+                    <HelpCircle size={18} /> Offene Anfragen ({openInquiries.length})
+                 </CardTitle>
+                 <CardDescription>Anfragen, die deine Aufmerksamkeit benötigen.</CardDescription>
+               </CardHeader>
+               <CardContent className="space-y-4">
+                   {openInquiries.map((inquiry) => (
+                    <div key={inquiry.id} className="bg-white p-4 rounded-lg border shadow-sm flex flex-col gap-3">
+                        <div>
+                            <h4 className="font-semibold text-sm">{inquiry.subject}</h4>
+                            <p className="text-xs text-gray-500 mt-1">Von: {inquiry.user?.name || 'Unbekannt'}</p>
+                            <p className="text-sm text-gray-700 mt-2">{inquiry.message}</p>
+                        </div>
+                        {/* We use a hidden input for ID, so we pass it inside the form */}
+                        <form action={resolveInquiry} className="flex gap-2 items-end w-full">
+                            <input type="hidden" name="inquiryId" value={inquiry.id} />
+                            <div className="flex-1">
+                                <Label htmlFor={`answer-${inquiry.id}`} className="sr-only">Antwort</Label>
+                                <Input 
+                                    id={`answer-${inquiry.id}`} 
+                                    name="answer" 
+                                    placeholder="Antwort schreiben..." 
+                                    className="h-8 text-xs"
+                                    required 
+                                />
+                            </div>
+                            <Button size="sm" type="submit" variant="outline" className="h-8 text-green-600 hover:text-green-700 hover:bg-green-50 border-green-200">
+                                Senden & Erledigen
+                            </Button>
+                        </form>
+                    </div>
+                 ))}
+                 {openInquiries.length === 0 && (
+                     <div className="flex items-center gap-2 text-sm text-green-700 bg-green-100 p-2 rounded border border-green-200">
+                        <span className="font-bold">✓</span> Alle Anfragen beantwortet!
+                     </div>
+                 )}
+               </CardContent>
+             </Card>
+
+           {/* Prüfungen Widget - Nur anzeigen wenn Prüfungen vorhanden */}
+           {nextExams.length > 0 && (
+               <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                     <GraduationCap size={18} /> Anstehende Prüfungen
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {nextExams.map((exam) => {
+                        const daysLeft = Math.ceil((new Date(exam.date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                        const isUrgent = daysLeft <= 14;
+
+                        return (
+                      <HoverCard key={exam.id}>
+                        <HoverCardTrigger asChild>
+                            <div className={`flex items-center justify-between border-b pb-4 last:border-0 last:pb-0 cursor-help p-2 rounded-md transition-colors ${isUrgent ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-gray-50'}`}>
+                                <div className="space-y-1">
+                                    <p className="font-medium leading-none">{exam.title}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                        {formatDate(exam.date)}
+                                    </p>
+                                </div>
+                                <div className="flex flex-col items-end gap-1">
+                                    <Badge variant={isUrgent ? "destructive" : "secondary"}>
+                                        {daysLeft} Tage
+                                    </Badge>
+                                </div>
+                            </div>
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80">
+                            <div className="flex justify-between space-x-4">
+                            <div className="space-y-1">
+                                <h4 className="text-sm font-semibold">{exam.title}</h4>
+                                <p className="text-sm text-muted-foreground">
+                                    {exam.content || "Keine weiteren Details verfügbar."}
+                                </p>
+                                <div className="flex items-center pt-2">
+                                <CalendarDays className="mr-2 h-4 w-4 opacity-70" />{" "}
+                                <span className="text-xs text-muted-foreground">
+                                    {formatDate(exam.date)} • {exam.duration} Min. • {exam.location || "Raum TBD"}
+                                </span>
+                                </div>
+                            </div>
+                            </div>
+                        </HoverCardContent>
+                      </HoverCard>
+                    )})}
+                  </div>
+                </CardContent>
+              </Card>
+           )}
+
+
+          {/* Kursplan Widget */}
+          {!isStaffOrAdmin && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Nächste Kurse</CardTitle>
+                <CardDescription>Dein Fahrplan für heute und morgen</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {nextCourses.map((course) => (
+                    <div key={course.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
+                      <div className="space-y-1">
+                        <p className="font-medium leading-none">{course.title}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {course.room?.name || 'Kein Raum'} • {course.instructor}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                         <Badge variant="outline">
+                          {course.startTime.toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'})}
+                         </Badge>
+                      </div>
+                    </div>
+                  ))}
+                  {nextCourses.length === 0 && (
+                      <p className="text-sm text-gray-500">Keine anstehenden Kurse.</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Admin/Staff Tasks Widget */}
+          {isStaffOrAdmin && (
+            <Card>
+                <CardHeader>
+                    <CardTitle>Meine Aufgaben</CardTitle>
+                    <CardDescription>Wichtige Deadlines und ToDos</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                         {/* Mock Data */}
+                        <div className="flex items-center gap-3">
+                            <div className="h-2 w-2 rounded-full bg-red-500" />
+                            <div className="flex-1">
+                                <p className="text-sm font-medium">Stundenabrechnung prüfen</p>
+                                <p className="text-xs text-muted-foreground">Fällig: Heute</p>
+                            </div>
+                            <Button size="sm" variant="ghost">Start</Button>
+                        </div>
+                        <div className="flex items-center gap-3">
+                             <div className="h-2 w-2 rounded-full bg-yellow-500" />
+                            <div className="flex-1">
+                                <p className="text-sm font-medium">Kursplanung Q2 finalisieren</p>
+                                <p className="text-xs text-muted-foreground">Fällig: Freitag</p>
+                            </div>
+                            <Button size="sm" variant="ghost">Start</Button>
+                        </div>
+                         <div className="flex items-center gap-3">
+                             <div className="h-2 w-2 rounded-full bg-green-500" />
+                            <div className="flex-1">
+                                <p className="text-sm font-medium">Feedbackgespräche vorbereiten</p>
+                                <p className="text-xs text-muted-foreground">Fällig: Nächste Woche</p>
+                            </div>
+                            <Button size="sm" variant="ghost">Start</Button>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+          )}
+
+
+        </div>
+
+        {/* Seitenspalte Rechts (3/7) */}
+        <div className="space-y-6 lg:col-span-3">
+          
+          {/* Zeiterfassung Widget (Rechts Oben) */}
           <Card className={isClockedIn ? "border-green-500 bg-green-50" : ""}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -233,131 +439,7 @@ export default async function Home() {
               </form>
             </CardContent>
           </Card>
-          
-          {/* OFFENE ANFRAGEN WIDGET (Nur für Staff/Admin) */}
-          {isStaffOrAdmin && (
-             <Card className="border-orange-200 bg-orange-50">
-               <CardHeader>
-                 <CardTitle className="flex items-center gap-2 text-orange-800">
-                    <HelpCircle size={18} /> Offene Anfragen ({openInquiries.length})
-                 </CardTitle>
-                 <CardDescription>Anfragen von Studenten, die deine Aufmerksamkeit benötigen.</CardDescription>
-               </CardHeader>
-               <CardContent className="space-y-4">
-                 {openInquiries.map((inquiry) => (
-                    <div key={inquiry.id} className="bg-white p-4 rounded-lg border shadow-sm flex flex-col gap-3">
-                        <div>
-                            <h4 className="font-semibold text-sm">{inquiry.subject}</h4>
-                            <p className="text-xs text-gray-500 mt-1">Von: {inquiry.user.name}</p>
-                            <p className="text-sm text-gray-700 mt-2">{inquiry.message}</p>
-                        </div>
-                        <form action={resolveInquiry} className="flex gap-2 items-end w-full">
-                            <input type="hidden" name="inquiryId" value={inquiry.id} />
-                            <div className="flex-1">
-                                <Label htmlFor={`answer-${inquiry.id}`} className="sr-only">Antwort</Label>
-                                <Input 
-                                    id={`answer-${inquiry.id}`} 
-                                    name="answer" 
-                                    placeholder="Antwort schreiben..." 
-                                    className="h-8 text-xs"
-                                    required 
-                                />
-                            </div>
-                            <Button size="sm" type="submit" variant="outline" className="h-8 text-green-600 hover:text-green-700 hover:bg-green-50 border-green-200">
-                                Senden & Erledigen
-                            </Button>
-                        </form>
-                    </div>
-                 ))}
-                 {openInquiries.length === 0 && (
-                     <p className="text-sm text-gray-500 italic">Keine offenen Anfragen. Gute Arbeit!</p>
-                 )}
-               </CardContent>
-             </Card>
-          )}
 
-           {/* Prüfungen Widget - Nur anzeigen wenn Prüfungen vorhanden */}
-           {nextExams.length > 0 && (
-               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                     <GraduationCap size={18} /> Anstehende Prüfungen
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {nextExams.map((exam) => (
-                      <HoverCard key={exam.id}>
-                        <HoverCardTrigger asChild>
-                            <div className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0 cursor-help hover:bg-gray-50 p-2 rounded-md transition-colors">
-                                <div className="space-y-1">
-                                    <p className="font-medium leading-none">{exam.title}</p>
-                                    <p className="text-sm text-muted-foreground">
-                                        {formatDate(exam.date)}
-                                    </p>
-                                </div>
-                                <Badge variant="secondary">Info</Badge>
-                            </div>
-                        </HoverCardTrigger>
-                        <HoverCardContent className="w-80">
-                            <div className="flex justify-between space-x-4">
-                            <div className="space-y-1">
-                                <h4 className="text-sm font-semibold">{exam.title}</h4>
-                                <p className="text-sm text-muted-foreground">
-                                    {exam.content}
-                                </p>
-                                <div className="flex items-center pt-2">
-                                <CalendarDays className="mr-2 h-4 w-4 opacity-70" />{" "}
-                                <span className="text-xs text-muted-foreground">
-                                    {formatDate(exam.date)} • {exam.duration} Min. • {exam.location}
-                                </span>
-                                </div>
-                            </div>
-                            </div>
-                        </HoverCardContent>
-                      </HoverCard>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-           )}
-
-
-          {/* Kursplan Widget */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Nächste Kurse</CardTitle>
-              <CardDescription>Dein Fahrplan für heute und morgen</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {nextCourses.map((course) => (
-                  <div key={course.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
-                    <div className="space-y-1">
-                      <p className="font-medium leading-none">{course.title}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {course.room?.name || 'Kein Raum'} • {course.instructor}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                       <Badge variant="outline">
-                        {course.startTime.toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'})}
-                       </Badge>
-                    </div>
-                  </div>
-                ))}
-                {nextCourses.length === 0 && (
-                    <p className="text-sm text-gray-500">Keine anstehenden Kurse.</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-        </div>
-
-        {/* Seitenspalte Rechts (3/7) */}
-        <div className="space-y-6 lg:col-span-3">
-          
           {/* Announcements Widget */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -396,7 +478,7 @@ export default async function Home() {
               )}
             </CardHeader>
             <CardContent className="space-y-4">
-              {announcements.map((news) => (
+              {announcements.map((news: Announcement) => (
                 <div key={news.id} className="bg-gray-50 p-3 rounded-lg border">
                   <h4 className="font-semibold text-sm text-blue-700">{news.title}</h4>
                   <p className="text-xs text-gray-600 mt-1 line-clamp-2">{news.content}</p>

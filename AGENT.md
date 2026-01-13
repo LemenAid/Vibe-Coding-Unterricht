@@ -1,49 +1,58 @@
-# Agent Handover Instructions
+# Agent Handover Instructions - VIBE Coding Intranet
 
-## Current Status
-The project is a Next.js 15 Intranet/LMS.
-- **Database**: Prisma SQLite schema is updated (includes `EducationTrack`, `CourseTopic`, `Room`).
-- **Seeds**: Database is seeded with "Winter 2025" track data.
-- **Admin Dashboard**: `/admin/users` is fully functional (User CRUD).
-- **Staff Dashboard**: Started but not finished. `lib/planning-actions.ts` needs to be implemented.
+This document outlines the immediate next steps to finalize the Intranet project. Please follow these instructions in order.
 
-## Next Tasks (Priority Order)
+## 1. UI & Branding Refinements (Sidebar)
+**Files:** `intranet/components/sidebar.tsx`, `intranet/app/inquiries/create-inquiry-dialog.tsx`
 
-### 1. Staff Dashboard (Planning)
-**Goal**: Allow Staff to manage Education Tracks and assign Teachers/Students to courses.
+1.  **Branding:**
+    *   In `intranet/components/sidebar.tsx`, change the app title in the header from **"CC Portal"** to **"VIBE Portal"**.
+2.  **"New Inquiry" Button Styling:**
+    *   In `intranet/app/inquiries/create-inquiry-dialog.tsx` (specifically the sidebar variant):
+        *   **Remove Hover Effect:** Remove the background hover effect so the button remains transparent/clean.
+        *   **Text Color:** Ensure the text color matches the current sidebar text color (use `text-current` or adapt to the role-based theme active in the sidebar).
+        *   **Alignment:** Change the alignment of the icon and text to be **right-aligned** (e.g., use `justify-end` or `flex-row-reverse` depending on visual preference, but request was "rechts alignd").
 
-*   **Server Actions**: Implement `lib/planning-actions.ts`.
-    *   Must include logic to check Teacher Skills vs Course Title (Tagging).
-    *   Must check for Time Conflicts for teachers.
-    *   Must enforce max 25 students per course.
-*   **UI Implementation**:
-    *   `/app/planning/page.tsx`: List all `EducationTracks`. Add "Create Track" button.
-    *   `/app/planning/[trackId]/page.tsx`: Show details of a track (Courses list, Users list).
-    *   `/app/planning/course/[courseId]/page.tsx`: The main management view.
-        *   **Teacher Assignment**: Show a list of teachers with "Recommended" (Matching Skill) and "Conflict" (Time overlap) badges. Allow assignment.
-        *   **Student Assignment**: List students from the parent `EducationTrack`. Allow checking/unchecking to assign to this specific course. Show "x/25" counter.
+## 2. Update Tutorials
+**File:** `intranet/app/tutorial/page.tsx`
 
-### 2. LMS Features (Exams & Grades)
-**Goal**: Allow Teachers to grade, Students to see grades.
+*   **Objective:** Rewrite the content to serve as a precise manual for the **currently functioning features**.
+*   **Constraint:** Do *not* list features that are planned but not implemented (e.g., if "Time Conflict Check" isn't fully visual yet, focus on "Creating Courses").
+*   **Structure:**
+    *   **Admin:** User management (CRUD), Skill approvals, Prisma DB access.
+    *   **Staff:** Creating Education Tracks, Creating Courses, Creating Students (Manual entry).
+    *   **Teacher:** Viewing "My Courses", Managing Exams (if working), Viewing/Editing Grades.
+    *   **Student:** Clock In/Out (Time Tracking), Viewing Dashboard/Courses, Creating Inquiries.
 
-*   **Teacher View**:
-    *   Create `/app/teacher/exams/page.tsx` (or inside `/courses` context).
-    *   Show list of finished exams for their courses.
-    *   Clicking an exam opens a table of all assigned students with an input field for `Grade`.
-*   **Student View**:
-    *   Update `/app/exams/page.tsx`.
-    *   Show list of upcoming exams.
-    *   Show list of past exams with Grades.
-    *   **IHK Score**: Calculate average grade (Logic: Sum / Count, potentially weighted if requirements change).
+## 3. Comprehensive Documentation & Critical Analysis
+**File:** Update `ENTITY_PLAN.md` (and rename to `DOCUMENTATION.md` if appropriate, or keep as is).
 
-### 3. Attendance Export
-*   **Feature**: In `/app/time`, add a "Download Monthly Report" button.
-*   **Implementation**: Generate a CSV or simple PDF view of `TimeEntry` records for the current user and month.
+*   **Goal:** Create an all-encompassing technical documentation file.
+*   **Required Sections:**
+    1.  **Technical Implementation:** Detailed explanation of the tech stack (Next.js 15, Prisma, Tailwind, Server Actions).
+    2.  **Architecture:** Use **Mermaid.js** diagrams to visualize:
+        *   Database Schema (ER Diagram).
+        *   Git/Deployment Workflow.
+    3.  **Critical Evaluation:**
+        *   Assess the code quality and architecture.
+        *   Identify bottlenecks or technical debt.
+        *   Propose concrete improvement steps (Refactoring, Performance).
+    4.  **Learnings:** Summarize key educational takeaways (e.g., "Why Server Actions?", "Managing Role-based Auth").
 
-## Technical Context
-*   **Auth**: `lib/auth.ts` and `lib/auth-actions.ts` handle session via cookies.
-*   **Database**: Use `prisma` for all data access.
-*   **Styling**: Tailwind CSS + shadcn/ui components in `components/ui`.
+## 4. README Updates (Pitfalls & AI Tips)
+**File:** `README.md`
 
-## Git
-Commit message for current state: "feat: Admin dashboard and schema updates"
+*   **Pitfalls:** Add a section listing common installation/runtime errors (e.g., `prisma generate` missing, `.env` issues) and their fixes.
+*   **AI Prompting Tips:** Add a guide on how to effectively prompt an AI to solve issues in this specific codebase (e.g., "Always provide the `schema.prisma` when asking about database errors").
+
+## 5. Presentation & Demo Scripts
+**File:** Create `PRESENTATION.md`
+
+*   **Master Script:** A full narrative script for presenting the entire Intranet. It must cover every role, view, and feature.
+*   **Role-Based Demo Scripts:** Short, actionable "screenplays" for a live demo.
+    *   *Format:* `Action -> Expected Result`
+    *   *Example (Student):*
+        1. Login as `student@demo.com`.
+        2. Click "Zeiterfassung" in Sidebar.
+        3. Click green "Clock In" button.
+        4. Verify "Active" status appears.

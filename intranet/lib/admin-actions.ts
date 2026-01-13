@@ -3,7 +3,6 @@
 import { prisma } from './prisma'
 import { revalidatePath } from 'next/cache'
 import { getCurrentUser } from './auth'
-import { redirect } from 'next/navigation'
 
 // Helper check for admin role
 async function requireAdmin() {

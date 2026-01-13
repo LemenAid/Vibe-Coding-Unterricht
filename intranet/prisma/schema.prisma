@@ -3,7 +3,6 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated-client"
 }
 
 datasource db {
@@ -31,8 +30,11 @@ model User {
   timeEntries   TimeEntry[]
   posts         BulletinPost[]
   inquiries     Inquiry[]
+  receivedInquiries Inquiry[] @relation("ReceivedInquiries")
   grades        Grade[]
   teacherSkills TeacherSkill[]
+  notifications Notification[]
+  invitations   CourseInvitation[]
   
   // Kurse (Studenten und Dozenten)
   coursesAsStudent Course[] @relation("StudentCourses")
@@ -71,8 +73,27 @@ model Course {
   teachers    User[]   @relation("TeacherCourses")
   exams       Exam[]
   topics      CourseTopic[] // Themengebiete innerhalb des Kurses
+  tags        CourseTag[]
+  invitations CourseInvitation[]
   
   createdAt   DateTime @default(now())
+}
+
+model CourseInvitation {
+  id        String   @id @default(cuid())
+  
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  teacherId String
+  teacher   User     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  
+  status    String   @default("PENDING") // "PENDING", "REJECTED"
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([courseId, teacherId])
 }
 
 // Themengebiete innerhalb eines Kurses (aus Kursinhalte.md)
@@ -173,6 +194,9 @@ model Inquiry {
   userId      String
   user        User     @relation(fields: [userId], references: [id])
   
+  recipientId String?
+  recipient   User?    @relation("ReceivedInquiries", fields: [recipientId], references: [id])
+
   subject     String
   message     String
   category    String   // "ADMIN", "TEACHER"
@@ -181,6 +205,34 @@ model Inquiry {
   
   createdAt   DateTime @default(now())
   answeredAt  DateTime?
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  message   String
+  link      String?  // Optional URL for deep linking
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Tag {
+  id      String   @id @default(cuid())
+  name    String   @unique
+  
+  skills  TeacherSkill[]
+  courses CourseTag[]
+}
+
+model CourseTag {
+  id       String @id @default(cuid())
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  tagId    String
+  tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, tagId])
 }
 
 // Neu für Profil-Features
@@ -197,12 +249,19 @@ model Grade {
   subject   String   // Fallback oder Fach-Name
   value     Float    // z.B. 2.5
   date      DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model TeacherSkill {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  subject   String   // z.B. "Web Development" (Dient als TAG)
-  isActive  Boolean  @default(true)
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  
+  tagId      String
+  tag        Tag      @relation(fields: [tagId], references: [id])
+  
+  isVerified Boolean  @default(false)
+  isActive   Boolean  @default(true)
+
+  @@unique([userId, tagId])
 }

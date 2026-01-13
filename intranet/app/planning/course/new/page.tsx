@@ -7,7 +7,6 @@ import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { prisma } from "@/lib/prisma"; // Added import
 
 export default async function NewCoursePage({ searchParams }: { searchParams: Promise<{ trackId?: string }> }) { // Updated to accept searchParams
   const user = await getCurrentUser();
