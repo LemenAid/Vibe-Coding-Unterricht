@@ -3,6 +3,7 @@
 
 generator client {
   provider = "prisma-client-js"
+  output   = "../generated-client"
 }
 
 datasource db {
@@ -18,6 +19,7 @@ model User {
   email     String   @unique
   role      String   @default("user") // "admin", "student", "staff"
   department String? // Für Admins/Staff: z.B. "IT-Support", "Verwaltung"
+  measureNumber String? // Format: 123/456/2024 (Nur für Studenten)
   createdAt DateTime @default(now())
   
   // Relationen
@@ -26,6 +28,25 @@ model User {
   inquiries     Inquiry[]
   grades        Grade[]
   teacherSkills TeacherSkill[]
+  
+  // Kurse (Studenten und Dozenten)
+  coursesAsStudent Course[] @relation("StudentCourses")
+  coursesAsTeacher Course[] @relation("TeacherCourses")
+}
+
+model Course {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  
+  // Relationen
+  students    User[]   @relation("StudentCourses")
+  teachers    User[]   @relation("TeacherCourses")
+  exams       Exam[]
+  
+  createdAt   DateTime @default(now())
 }
 
 model TimeEntry {
@@ -35,6 +56,7 @@ model TimeEntry {
   clockIn   DateTime  @default(now())
   clockOut  DateTime?
   duration  Int?      // Dauer in Minuten (optional für Caching)
+  location  String    @default("ON_SITE") // "ON_SITE" (CC/Office) oder "REMOTE" (Telelearning/HomeOffice)
   
   createdAt DateTime @default(now())
 }
@@ -80,6 +102,9 @@ model Exam {
   content     String   // Was wird abgefragt?
   location    String
   duration    Int      // Dauer in Minuten
+  
+  courseId    String?
+  course      Course?  @relation(fields: [courseId], references: [id])
   
   createdAt   DateTime @default(now())
 }

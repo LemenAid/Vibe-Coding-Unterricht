@@ -45,7 +45,6 @@ import {
   getAnnouncements, 
   getCourseEvents, 
   getLastTimeEntry, 
-  getExams,
   clockIn, 
   clockOut,
   createAnnouncement,
@@ -54,13 +53,13 @@ import {
   resolveInquiry
 } from "@/lib/actions";
 import { requireUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export default async function Home() {
   const user = await requireUser(); // Login Check
 
   const announcements = await getAnnouncements();
   const nextCourses = await getCourseEvents();
-  const nextExams = await getExams();
   const lastEntry = await getLastTimeEntry();
   
   // Nur abrufen, wenn kein Student
@@ -68,6 +67,46 @@ export default async function Home() {
   
   const isClockedIn = lastEntry && !lastEntry.clockOut;
   const isStaffOrAdmin = user.role === 'admin' || user.role === 'staff';
+
+  // --- Prüfungen basierend auf Rolle und Zuweisung ---
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let nextExams: any[] = [];
+  try {
+    if (user.role === 'student') {
+      nextExams = await prisma.exam.findMany({
+        where: {
+          date: { gte: new Date() },
+          course: {
+            students: {
+              some: { id: user.id }
+            }
+          }
+        },
+        orderBy: { date: 'asc' },
+        take: 5,
+        include: { course: true }
+      });
+    } else if (user.role === 'staff' || user.role === 'admin') {
+       nextExams = await prisma.exam.findMany({
+          where: {
+            date: { gte: new Date() },
+            course: {
+              teachers: {
+                some: { id: user.id }
+              }
+            }
+          },
+          orderBy: { date: 'asc' },
+          take: 5,
+          include: { course: true }
+        });
+    }
+  } catch (e) {
+      console.error("Error fetching exams", e);
+      // Fallback: Keine Prüfungen anzeigen, wenn die Query fehlschlägt 
+      // (z.B. weil der generated Client noch nicht aktuell ist)
+      nextExams = [];
+  }
 
   // Formatierungs-Helper
   const formatDate = (date: Date) => {
@@ -155,20 +194,42 @@ export default async function Home() {
                   : "Du bist aktuell nicht bei der Arbeit."}
               </p>
               
-              <form action={async () => {
+              <form action={async (formData) => {
                 "use server";
                 if (isClockedIn) {
                    await clockOut(lastEntry!.id);
                 } else {
-                   await clockIn();
+                   await clockIn(formData);
                 }
               }}>
-                <Button 
-                    className={isClockedIn ? "w-full bg-red-600 hover:bg-red-700" : "w-full bg-green-600 hover:bg-green-700"}
-                    size="lg"
-                >
-                  {isClockedIn ? "Jetzt Ausstempeln" : "Jetzt Einstempeln"}
-                </Button>
+                <div className="flex flex-col gap-3">
+                    {!isClockedIn && (
+                         <Select name="location" defaultValue="ON_SITE">
+                          <SelectTrigger>
+                            <SelectValue placeholder="Arbeitsort wählen" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {user.role === 'student' ? (
+                                <>
+                                    <SelectItem value="ON_CAMPUS">🎓 On-Campus</SelectItem>
+                                    <SelectItem value="TELELEARNING">🏠 Tele-Learning</SelectItem>
+                                </>
+                            ) : (
+                                <>
+                                    <SelectItem value="ON_SITE">🏢 On-Site (Büro/Campus)</SelectItem>
+                                    <SelectItem value="HOME_OFFICE">🏠 Home-Office</SelectItem>
+                                </>
+                            )}
+                          </SelectContent>
+                        </Select>
+                    )}
+                    <Button 
+                        className={isClockedIn ? "w-full bg-red-600 hover:bg-red-700" : "w-full bg-green-600 hover:bg-green-700"}
+                        size="lg"
+                    >
+                      {isClockedIn ? "Jetzt Ausstempeln" : "Jetzt Einstempeln"}
+                    </Button>
+                </div>
               </form>
             </CardContent>
           </Card>
@@ -215,52 +276,51 @@ export default async function Home() {
              </Card>
           )}
 
-           {/* Prüfungen Widget */}
-           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                 <GraduationCap size={18} /> Anstehende Prüfungen
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {nextExams.map((exam) => (
-                  <HoverCard key={exam.id}>
-                    <HoverCardTrigger asChild>
-                        <div className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0 cursor-help hover:bg-gray-50 p-2 rounded-md transition-colors">
+           {/* Prüfungen Widget - Nur anzeigen wenn Prüfungen vorhanden */}
+           {nextExams.length > 0 && (
+               <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                     <GraduationCap size={18} /> Anstehende Prüfungen
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {nextExams.map((exam) => (
+                      <HoverCard key={exam.id}>
+                        <HoverCardTrigger asChild>
+                            <div className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0 cursor-help hover:bg-gray-50 p-2 rounded-md transition-colors">
+                                <div className="space-y-1">
+                                    <p className="font-medium leading-none">{exam.title}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                        {formatDate(exam.date)}
+                                    </p>
+                                </div>
+                                <Badge variant="secondary">Info</Badge>
+                            </div>
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-80">
+                            <div className="flex justify-between space-x-4">
                             <div className="space-y-1">
-                                <p className="font-medium leading-none">{exam.title}</p>
+                                <h4 className="text-sm font-semibold">{exam.title}</h4>
                                 <p className="text-sm text-muted-foreground">
-                                    {formatDate(exam.date)}
+                                    {exam.content}
                                 </p>
+                                <div className="flex items-center pt-2">
+                                <CalendarDays className="mr-2 h-4 w-4 opacity-70" />{" "}
+                                <span className="text-xs text-muted-foreground">
+                                    {formatDate(exam.date)} • {exam.duration} Min. • {exam.location}
+                                </span>
+                                </div>
                             </div>
-                            <Badge variant="secondary">Info</Badge>
-                        </div>
-                    </HoverCardTrigger>
-                    <HoverCardContent className="w-80">
-                        <div className="flex justify-between space-x-4">
-                        <div className="space-y-1">
-                            <h4 className="text-sm font-semibold">{exam.title}</h4>
-                            <p className="text-sm text-muted-foreground">
-                                {exam.content}
-                            </p>
-                            <div className="flex items-center pt-2">
-                            <CalendarDays className="mr-2 h-4 w-4 opacity-70" />{" "}
-                            <span className="text-xs text-muted-foreground">
-                                {formatDate(exam.date)} • {exam.duration} Min. • {exam.location}
-                            </span>
                             </div>
-                        </div>
-                        </div>
-                    </HoverCardContent>
-                  </HoverCard>
-                ))}
-                {nextExams.length === 0 && (
-                     <p className="text-sm text-gray-500">Keine anstehenden Prüfungen.</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                        </HoverCardContent>
+                      </HoverCard>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+           )}
 
 
           {/* Kursplan Widget */}

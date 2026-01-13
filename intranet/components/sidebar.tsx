@@ -33,12 +33,30 @@ export async function Sidebar() {
               Dashboard
             </Button>
           </Link>
-          <Link href="/courses">
-            <Button variant="ghost" className="w-full justify-start gap-2">
-              <CalendarDays size={20} />
-              Kursplan
-            </Button>
-          </Link>
+          {user.role === 'student' && (
+            <>
+              <Link href="/courses">
+                <Button variant="ghost" className="w-full justify-start gap-2">
+                  <CalendarDays size={20} />
+                  Kursplan
+                </Button>
+              </Link>
+              <Link href="/exams">
+                <Button variant="ghost" className="w-full justify-start gap-2">
+                  <CalendarDays size={20} />
+                  Prüfungen
+                </Button>
+              </Link>
+            </>
+          )}
+          {(user.role === 'staff' || user.role === 'admin') && (
+            <Link href="/planning">
+              <Button variant="ghost" className="w-full justify-start gap-2">
+                <CalendarDays size={20} />
+                Planung
+              </Button>
+            </Link>
+          )}
           <Link href="/time">
             <Button variant="ghost" className="w-full justify-start gap-2">
               <Clock size={20} />

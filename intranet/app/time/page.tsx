@@ -36,6 +36,7 @@ export default async function TimePage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Datum</TableHead>
+                <TableHead>Ort</TableHead>
                 <TableHead>Kommen</TableHead>
                 <TableHead>Gehen</TableHead>
                 <TableHead>Status</TableHead>
@@ -46,6 +47,12 @@ export default async function TimePage() {
                 <TableRow key={entry.id}>
                   <TableCell className="font-medium">
                     {entry.clockIn.toLocaleDateString('de-DE')}
+                  </TableCell>
+                  <TableCell>
+                    {entry.location === 'REMOTE' 
+                        ? <Badge variant="secondary">Telelearning / HomeOffice</Badge> 
+                        : <Badge variant="outline">Campus / Büro</Badge>
+                    }
                   </TableCell>
                   <TableCell>
                     {entry.clockIn.toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'})}
@@ -67,7 +74,7 @@ export default async function TimePage() {
               ))}
               {entries.length === 0 && (
                  <TableRow>
-                    <TableCell colSpan={4} className="text-center text-gray-500 h-24">
+                    <TableCell colSpan={5} className="text-center text-gray-500 h-24">
                         Keine Zeiteinträge gefunden.
                     </TableCell>
                  </TableRow>

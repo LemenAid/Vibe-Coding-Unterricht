@@ -15,17 +15,21 @@ export async function getLastTimeEntry() {
   });
 }
 
-export async function clockIn() {
+export async function clockIn(formData?: FormData) {
   const user = await getCurrentUser();
   if (!user) throw new Error("Unauthorized");
+
+  const location = formData ? (formData.get('location') as string) : 'ON_SITE';
 
   await prisma.timeEntry.create({
     data: {
       userId: user.id,
       clockIn: new Date(),
+      location: location
     },
   });
   revalidatePath('/');
+  revalidatePath('/time');
 }
 
 export async function clockOut(entryId: string) {
@@ -37,6 +41,7 @@ export async function clockOut(entryId: string) {
     },
   });
   revalidatePath('/');
+  revalidatePath('/time');
 }
 
 export async function getRecentEntries() {

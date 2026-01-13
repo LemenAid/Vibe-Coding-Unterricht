@@ -1,0 +1,143 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated-client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Modelle für das Intranet
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  role          String   @default("user") // "admin", "student", "staff"
+  department    String? // Für Admins/Staff: z.B. "IT-Support", "Verwaltung"
+  measureNumber String? // Format: 123/456/2024 (Nur für Studenten)
+  createdAt     DateTime @default(now())
+
+  // Relationen
+  timeEntries   TimeEntry[]
+  posts         BulletinPost[]
+  inquiries     Inquiry[]
+  grades        Grade[]
+  teacherSkills TeacherSkill[]
+
+  // Kurse (Studenten und Dozenten)
+  coursesAsStudent Course[] @relation("StudentCourses")
+  coursesAsTeacher Course[] @relation("TeacherCourses")
+}
+
+model Course {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+
+  // Relationen
+  students User[] @relation("StudentCourses")
+  teachers User[] @relation("TeacherCourses")
+  exams    Exam[]
+
+  createdAt DateTime @default(now())
+}
+
+model TimeEntry {
+  id       String    @id @default(cuid())
+  userId   String
+  user     User      @relation(fields: [userId], references: [id])
+  clockIn  DateTime  @default(now())
+  clockOut DateTime?
+  duration Int? // Dauer in Minuten (optional für Caching)
+  location String    @default("ON_SITE") // "ON_SITE" (CC/Office) oder "REMOTE" (Telelearning/HomeOffice)
+
+  createdAt DateTime @default(now())
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  author    String // Einfacher String für den MVP
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model CourseEvent {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  location    String?
+  instructor  String?
+
+  createdAt DateTime @default(now())
+}
+
+model BulletinPost {
+  id          String @id @default(cuid())
+  title       String
+  description String
+  type        String // "OFFER" (Biete) oder "SEARCH" (Suche)
+  contactInfo String
+
+  userId String? // Optional für MVP (Gast-Posts möglich machen oder festen User nutzen)
+  user   User?   @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model Exam {
+  id       String   @id @default(cuid())
+  title    String
+  date     DateTime
+  content  String // Was wird abgefragt?
+  location String
+  duration Int // Dauer in Minuten
+
+  courseId String?
+  course   Course? @relation(fields: [courseId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model Inquiry {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  subject  String
+  message  String
+  category String // "ADMIN", "TEACHER"
+  status   String  @default("OPEN") // "OPEN", "ANSWERED"
+  answer   String? // Antwort vom Personal
+
+  createdAt  DateTime  @default(now())
+  answeredAt DateTime?
+}
+
+// Neu für Profil-Features
+model Grade {
+  id      String   @id @default(cuid())
+  userId  String
+  user    User     @relation(fields: [userId], references: [id])
+  subject String // z.B. "Mathematik"
+  value   Float // z.B. 2.5
+  date    DateTime @default(now())
+}
+
+model TeacherSkill {
+  id       String  @id @default(cuid())
+  userId   String
+  user     User    @relation(fields: [userId], references: [id])
+  subject  String // z.B. "Web Development"
+  isActive Boolean @default(true)
+}
