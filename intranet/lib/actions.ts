@@ -122,13 +122,15 @@ export async function getCourseEvents() {
                 gte: new Date()
             }
         },
-        take: 5
+        take: 5,
+        include: { room: true }
     })
 }
 
 export async function getAllCourseEvents() {
   return prisma.courseEvent.findMany({
       orderBy: { startTime: 'asc' },
+      include: { room: true }
   })
 }
 

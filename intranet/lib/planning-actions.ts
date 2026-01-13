@@ -50,6 +50,31 @@ export async function createStudentAction(formData: FormData) {
   redirect("/planning");
 }
 
+
+// --- Umschulungs-Management ---
+
+export async function createTrackAction(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user || (user.role !== "staff" && user.role !== "admin")) {
+    throw new Error("Unauthorized");
+  }
+
+  const title = formData.get("title") as string;
+  const startDate = new Date(formData.get("startDate") as string);
+  const endDate = new Date(formData.get("endDate") as string);
+
+  await prisma.educationTrack.create({
+    data: {
+      title,
+      startDate,
+      endDate
+    }
+  });
+
+  revalidatePath("/planning");
+  redirect("/planning");
+}
+
 // --- Kurs-Management ---
 
 export async function createCourseAction(formData: FormData) {
@@ -63,15 +88,23 @@ export async function createCourseAction(formData: FormData) {
     const startDate = new Date(formData.get("startDate") as string);
     const endDate = new Date(formData.get("endDate") as string);
   
+
+    const trackId = formData.get("trackId") as string;
+
     await prisma.course.create({
       data: {
         title,
         description,
         startDate,
-        endDate
+        endDate,
+        educationTrackId: trackId || null
       }
     });
   
     revalidatePath("/planning");
-    redirect("/planning");
+    if (trackId) {
+        redirect(`/planning/${trackId}`);
+    } else {
+        redirect("/planning");
+    }
   }

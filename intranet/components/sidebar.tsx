@@ -12,8 +12,44 @@ import {
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth";
 import { logoutAction } from "@/lib/auth-actions";
+import {
+  Sidebar as ShadcnSidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "@/components/ui/sidebar"
+
+export function AppSidebar({ ...props }: React.ComponentProps<typeof ShadcnSidebar>) {
+    return (
+        <ShadcnSidebar collapsible="icon" {...props}>
+          <SidebarContent>
+             <SidebarGroup>
+                 <SidebarGroupLabel>CC Portal</SidebarGroupLabel>
+                 <SidebarGroupContent>
+                     <SidebarMenu>
+                         <SidebarMenuItem>
+                             <SidebarMenuButton asChild>
+                                 <Link href="/">
+                                     <LayoutDashboard />
+                                     <span>Dashboard</span>
+                                 </Link>
+                             </SidebarMenuButton>
+                         </SidebarMenuItem>
+                     </SidebarMenu>
+                 </SidebarGroupContent>
+             </SidebarGroup>
+          </SidebarContent>
+        </ShadcnSidebar>
+    )
+}
 
 export async function Sidebar() {
+
+
   const user = await getCurrentUser();
   if (!user) return null;
 

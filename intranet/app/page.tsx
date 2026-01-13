@@ -336,7 +336,7 @@ export default async function Home() {
                     <div className="space-y-1">
                       <p className="font-medium leading-none">{course.title}</p>
                       <p className="text-sm text-muted-foreground">
-                        {course.location} • {course.instructor}
+                        {course.room?.name || 'Kein Raum'} • {course.instructor}
                       </p>
                     </div>
                     <div className="text-right">

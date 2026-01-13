@@ -71,7 +71,7 @@ export default async function CoursesPage() {
                         
                         <div className="flex items-center gap-2 pt-2 border-t mt-2">
                             <MapPin size={14} />
-                            <span>{event.location}</span>
+                            <span>{event.room?.name || 'Kein Raum'}</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <User size={14} />
@@ -115,7 +115,7 @@ export default async function CoursesPage() {
                                     </TableCell>
                                     <TableCell className="font-semibold">{course.title}</TableCell>
                                     <TableCell>{course.instructor}</TableCell>
-                                    <TableCell>{course.location}</TableCell>
+                                    <TableCell>{course.room?.name || 'Kein Raum'}</TableCell>
                                     <TableCell className="text-gray-500 max-w-xs truncate" title={course.description || ''}>
                                         {course.description}
                                     </TableCell>
