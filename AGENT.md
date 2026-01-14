@@ -1,4 +1,4 @@
-# Agent Handover Instructions - VIBE Coding Intranet
+# Agent Handover Instructions - Schul-Portal-Demo Intranet
 
 This document outlines the immediate next steps to finalize the Intranet project. Please follow these instructions in order.
 
@@ -6,7 +6,7 @@ This document outlines the immediate next steps to finalize the Intranet project
 **Files:** `intranet/components/sidebar.tsx`, `intranet/app/inquiries/create-inquiry-dialog.tsx`
 
 1.  **Branding:**
-    *   In `intranet/components/sidebar.tsx`, change the app title in the header from **"CC Portal"** to **"VIBE Portal"**.
+    *   In `intranet/components/sidebar.tsx`, change the app title in the header from **"CC Portal"** to **"Schul-Portal-Demo"**.
 2.  **"New Inquiry" Button Styling:**
     *   In `intranet/app/inquiries/create-inquiry-dialog.tsx` (specifically the sidebar variant):
         *   **Remove Hover Effect:** Remove the background hover effect so the button remains transparent/clean.

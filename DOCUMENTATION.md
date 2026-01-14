@@ -1,8 +1,8 @@
-# VIBE Portal - Technical Documentation
+# Schul-Portal-Demo - Technical Documentation
 
 ## 🚀 Features for Future Planning
 
-The following features and improvements are planned for upcoming iterations of the VIBE Portal. These aim to enhance scalability, user experience, and administrative control.
+The following features and improvements are planned for upcoming iterations of the Schul-Portal-Demo. These aim to enhance scalability, user experience, and administrative control.
 
 ### 1. 🏗️ Architecture & Database Redesign
 *   **Database Schema Optimization:** Re-evaluate existing relationships to reduce redundancy and support more complex query patterns (e.g., historical tracking of grade changes).

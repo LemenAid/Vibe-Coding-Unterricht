@@ -14,7 +14,7 @@ export default async function LoginPage() {
       </div>
       <div className="max-w-7xl w-full space-y-12">
         <div className="text-center space-y-4">
-          <h1 className="text-5xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100 drop-shadow-sm">VIBE Portal</h1>
+          <h1 className="text-5xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100 drop-shadow-sm">Schul-Portal-Demo</h1>
           <p className="text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">Wähle deinen Zugangsbereich für die Demo-Session</p>
         </div>
 

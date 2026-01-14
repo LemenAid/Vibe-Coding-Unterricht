@@ -1,4 +1,4 @@
-# VIBE Portal - Intranet Anwendung
+# Schul-Portal-Demo - Intranet Anwendung
 
 Eine umfassende Intranet-Lösung für Bildungseinrichtungen zur Verwaltung von Schülern, Lehrern, Mitarbeitern, Kursen und Zeiterfassung.
 

@@ -1,6 +1,6 @@
-# CC Vibe Portal 🚀
+# CC Schul-Portal-Demo 🚀
 
-Ein modernes Firmen-Intranet / LMS-Prototyp, erstellt mit Vibe Coding.
+Ein modernes Firmen-Intranet / LMS-Prototyp, erstellt mit Next.js.
 
 ## 🚧 Aktueller Status (Development)
 Das Projekt befindet sich in aktiver Entwicklung.

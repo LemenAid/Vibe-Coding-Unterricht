@@ -1,8 +1,8 @@
-# VIBE Portal - Technische Dokumentation
+# Schul-Portal-Demo - Technische Dokumentation
 
 ## 🚀 Features für zukünftige Planung
 
-Die folgenden Funktionen und Verbesserungen sind für kommende Iterationen des VIBE Portals geplant. Diese zielen darauf ab, Skalierbarkeit, Benutzererfahrung und administrative Kontrolle zu verbessern.
+Die folgenden Funktionen und Verbesserungen sind für kommende Iterationen des Schul-Portal-Demo geplant. Diese zielen darauf ab, Skalierbarkeit, Benutzererfahrung und administrative Kontrolle zu verbessern.
 
 ### 1. 🏗️ Architektur- & Datenbank-Redesign
 *   **Datenbankschema-Optimierung:** Bestehende Beziehungen neu bewerten, um Redundanzen zu reduzieren und komplexere Abfragemuster zu unterstützen (z. B. historische Verfolgung von Notenänderungen).

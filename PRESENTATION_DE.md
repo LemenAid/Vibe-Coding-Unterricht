@@ -1,9 +1,9 @@
-# VIBE Portal - Präsentation & Demo-Skripte
+# Schul-Portal-Demo - Präsentation & Demo-Skripte
 
 ## 1. Hauptskript (Erzählung)
 
 **Einleitung:**
-"Willkommen beim VIBE Portal, dem zentralen Nervensystem für unsere Bildungseinrichtung. Diese Plattform schlägt die Brücke zwischen Verwaltung, Lehrpersonal und Schülern und bietet eine einheitliche Oberfläche für die Verwaltung des gesamten Bildungszyklus."
+"Willkommen beim Schul-Portal-Demo, dem zentralen Nervensystem für unsere Bildungseinrichtung. Diese Plattform schlägt die Brücke zwischen Verwaltung, Lehrpersonal und Schülern und bietet eine einheitliche Oberfläche für die Verwaltung des gesamten Bildungszyklus."
 
 **Teil 1: Das Fundament (Administrator)**
 "Wir beginnen mit der Administrator-Ansicht. Der Admin ist der Architekt des Systems.
@@ -28,7 +28,7 @@
 *   **Anfragen:** Wenn ein Schüler ein Problem hat, sendet er keine lose E-Mail. Er nutzt den 'Neue Anfrage'-Button, um ein strukturiertes Ticket direkt an die relevante Abteilung zu senden."
 
 **Fazit:**
-"Das VIBE Portal ersetzt fragmentierte Tabellenkalkulationen und E-Mails durch eine einzige, rollenbewusste Anwendung und rationalisiert die Abläufe für alle Beteiligten."
+"Das Schul-Portal-Demo ersetzt fragmentierte Tabellenkalkulationen und E-Mails durch eine einzige, rollenbewusste Anwendung und rationalisiert die Abläufe für alle Beteiligten."
 
 ---
 

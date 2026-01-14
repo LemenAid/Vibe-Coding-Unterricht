@@ -32,7 +32,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof ShadcnSideb
         <ShadcnSidebar collapsible="icon" {...props}>
           <SidebarContent>
              <SidebarGroup>
-                 <SidebarGroupLabel>VIBE Portal</SidebarGroupLabel>
+                 <SidebarGroupLabel>Schul-Portal-Demo</SidebarGroupLabel>
                  <SidebarGroupContent>
                      <SidebarMenu>
                          <SidebarMenuItem>
@@ -71,9 +71,9 @@ export async function Sidebar() {
         <div className="flex items-center justify-between px-2 py-4">
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center border border-white/30">
-                <span className="text-white font-bold">VP</span>
+                <span className="text-white font-bold">SP</span>
               </div>
-              <span className="text-xl font-bold">VIBE Portal</span>
+              <span className="text-xl font-bold">Schul-Portal-Demo</span>
             </div>
             {/* Notification Bell in Sidebar Header */}
             <NotificationsSidebar />

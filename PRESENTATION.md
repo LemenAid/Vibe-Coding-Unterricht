@@ -1,9 +1,9 @@
-# VIBE Portal - Presentation & Demo Scripts
+# Schul-Portal-Demo - Presentation & Demo Scripts
 
 ## 1. Master Script (Narrative)
 
 **Introduction:**
-"Welcome to the VIBE Portal, the central nervous system for our educational institution. This platform bridges the gap between administration, teaching staff, and students, providing a unified interface for managing the entire educational lifecycle."
+"Welcome to the Schul-Portal-Demo, the central nervous system for our educational institution. This platform bridges the gap between administration, teaching staff, and students, providing a unified interface for managing the entire educational lifecycle."
 
 **Part 1: The Foundation (Administrator)**
 "We start with the Administrator view. The Admin is the architect of the system.
@@ -28,7 +28,7 @@
 *   **Inquiries:** If a student has a problem, they don't send a loose email. They use the 'New Inquiry' button to send a structured ticket directly to the relevant department."
 
 **Conclusion:**
-"The VIBE Portal replaces fragmented spreadsheets and emails with a single, role-aware application, streamlining operations for everyone involved."
+"The Schul-Portal-Demo replaces fragmented spreadsheets and emails with a single, role-aware application, streamlining operations for everyone involved."
 
 ---
 

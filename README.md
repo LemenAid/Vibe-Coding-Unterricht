@@ -1,4 +1,4 @@
-# VIBE Portal - Intranet Application
+# Schul-Portal-Demo - Intranet Application
 
 A comprehensive intranet solution for educational institutions, managing students, teachers, staff, courses, and time tracking.
 
