@@ -14,150 +14,223 @@ export default async function TutorialPage() {
   const roleContent = {
     admin: {
       title: "Administratoren-Guide",
-      description: "Volle Kontrolle über das System, Benutzerverwaltung und Konfiguration.",
+      description: "Volle Kontrolle über das System, Benutzerverwaltung und Datenbank-Zugriff.",
       icon: Shield,
       sections: [
         {
           title: "Benutzerverwaltung",
-          content: "Erstellen, bearbeiten und löschen Sie Benutzerkonten. Verwalten Sie Rollen und Berechtigungen.",
+          content: "Erstellen, bearbeiten und löschen Sie Benutzerkonten. Verwalten Sie Rollen (Admin, Staff, Teacher, Student) und Berechtigungen.",
           icon: UserCircle,
           steps: [
-            "Gehen Sie im Menü zu 'Admin'", 
-            "Nutzen Sie 'Add User' oben rechts", 
-            "Füllen Sie Name, E-Mail und Rolle aus",
-            "Passwörter können bei Bedarf zurückgesetzt werden"
+            "Klicken Sie in der Sidebar auf 'Admin'", 
+            "Nutzen Sie 'Add User' oben rechts für neue Accounts", 
+            "Füllen Sie Name, E-Mail und Rolle aus (z.B. 'Max Mustermann', Rolle: Student)",
+            "Initial-Passwörter werden automatisch generiert",
+            "Benutzer können ihre Accounts über das Profil verwalten"
           ]
         },
         {
           title: "Skill Freigaben",
-          content: "Überprüfen und genehmigen Sie Skills, die von Benutzern eingereicht wurden.",
+          content: "Überprüfen und genehmigen Sie Skills, die von Benutzern zur Freischaltung eingereicht wurden.",
           icon: CheckCircle2,
           steps: [
-            "Navigieren Sie zu 'Skill Freigaben'", 
-            "Sehen Sie offene Skill-Anfragen", 
-            "Genehmigen oder lehnen Sie Skills ab"
+            "Navigieren Sie zu 'Skill Freigaben' in der Sidebar", 
+            "Sehen Sie offene Skill-Anfragen mit Details", 
+            "Genehmigen Sie Skills mit einem Klick",
+            "Lehnen Sie ungültige Skills ab mit Begründung"
           ]
         },
         {
-          title: "System & Datenbank",
-          content: "Direkter Zugriff auf die Datenbank und Systemüberwachung.",
+          title: "Neon Datenbank",
+          content: "Direkter Zugriff auf die PostgreSQL-Datenbank über Neon Console.",
           icon: Database,
           steps: [
-            "Nutzen Sie den 'Prisma DB' Link in der Sidebar", 
-            "Verwalten Sie Datensätze direkt (Vorsicht geboten!)",
-            "Überwachen Sie System-Logs"
+            "Klicken Sie auf 'Neon DB' in der Sidebar (Admin-only)", 
+            "Neon Console öffnet sich in neuem Tab",
+            "Melden Sie sich mit Ihrem Neon-Account an",
+            "Verwalten Sie Datenbank, sehen Sie Queries, überwachen Performance"
           ]
         }
       ]
     },
     staff: {
       title: "Verwaltungs-Handbuch",
-      description: "Organisation von Education Tracks, Kursen und Schülern.",
+      description: "Organisation von Education Tracks, Kursen, Räumen und Schülerzuweisungen.",
       icon: Settings,
       sections: [
         {
-          title: "Education Tracks",
-          content: "Legen Sie neue Ausbildungsgänge und Jahrgänge an.",
+          title: "Education Tracks erstellen",
+          content: "Legen Sie neue Ausbildungsgänge und Jahrgänge an (z.B. 'Fachinformatiker Winter 2025').",
           icon: GraduationCap,
           steps: [
-            "Öffnen Sie den Bereich 'Planung'", 
-            "Erstellen Sie einen neuen Track (z.B. 'FIAE 2024')", 
-            "Definieren Sie Start- und Enddatum"
+            "Öffnen Sie 'Planung' in der Sidebar", 
+            "Klicken Sie auf 'Neuer Jahrgang'", 
+            "Geben Sie Titel, Start- und Enddatum ein (z.B. 'FIAE 2024')",
+            "Der Track erscheint in der Übersicht",
+            "Klicken Sie auf den Track um Details anzuzeigen"
           ]
         },
         {
-          title: "Kursverwaltung",
-          content: "Erstellen Sie Kurse und weisen Sie diese den Tracks zu.",
+          title: "Kurse verwalten",
+          content: "Erstellen Sie Kurse mit Räumen, Themen (UE) und weisen Sie Dozenten zu.",
           icon: BookOpen,
           steps: [
-            "Erstellen Sie Kurse innerhalb eines Tracks", 
-            "Weisen Sie Dozenten und Räume zu", 
-            "Verwalten Sie Modulinhalte"
+            "Wählen Sie einen Track aus und klicken 'Kurs hinzufügen'", 
+            "Füllen Sie Titel, Beschreibung, Datum aus",
+            "⭐ NEU: Wählen Sie einen Raum aus (z.B. 'Room 101', 'Remote')",
+            "⭐ NEU: Fügen Sie Themen hinzu mit Unterrichtseinheiten (UE)",
+            "Beispiel: 'React Basics' - 40 UE, 'React Hooks' - 40 UE",
+            "Laden Sie Dozenten per E-Mail ein oder weisen direkt zu"
           ]
         },
         {
-          title: "Schüler anlegen",
-          content: "Fügen Sie neue Schüler manuell zum System hinzu.",
+          title: "Schüler zuweisen",
+          content: "Weisen Sie Schüler zu Kursen zu - System aktualisiert alle Ansichten in Echtzeit.",
           icon: UserCircle,
           steps: [
-            "Nutzen Sie die Benutzerverwaltung (Admin-Bereich)", 
-            "Erstellen Sie Accounts mit Rolle 'Student'", 
-            "Weisen Sie den Schüler einem Education Track zu"
+            "Öffnen Sie einen Kurs in der Planung", 
+            "Klicken Sie auf 'Studenten zuweisen'",
+            "Dialog zeigt verfügbare Schüler mit Checkboxen",
+            "Wählen Sie mehrere Schüler aus (z.B. 18 von 25)",
+            "Klicken Sie 'Zuweisen' - Schüler sehen Kurs sofort in Dashboard"
+          ]
+        },
+        {
+          title: "Benachrichtigungen",
+          content: "Erhalten Sie Anfragen von Schülern und beantworten Sie diese direkt.",
+          icon: HelpCircle,
+          steps: [
+            "Neue Anfragen erscheinen als Benachrichtigung (Glocke-Symbol)",
+            "Klicken Sie auf die Benachrichtigung um zur Anfrage zu gelangen",
+            "Öffnen Sie 'History' für alle Anfragen",
+            "Geben Sie Antworten ein und klicken 'Absenden'",
+            "Schüler erhalten automatisch Info-Benachrichtigung"
           ]
         }
       ]
     },
     teacher: {
       title: "Dozenten-Leitfaden",
-      description: "Kursmanagement, Notengebung und Prüfungsverwaltung.",
+      description: "Kursmanagement, Prüfungsverwaltung, Notengebung und Kurs-Einladungen.",
       icon: BookOpen,
       sections: [
         {
           title: "Meine Kurse",
-          content: "Übersicht über Ihre aktuellen und vergangenen Kurse.",
+          content: "Übersicht über Ihre zugewiesenen Kurse mit Teilnehmerlisten und Themen.",
           icon: LayoutDashboard,
           steps: [
-            "Klicken Sie auf 'Meine Kurse'", 
-            "Sehen Sie Details zu Ihren zugewiesenen Modulen", 
-            "Prüfen Sie die Teilnehmerliste"
+            "Klicken Sie auf 'Meine Kurse' in der Sidebar", 
+            "Sehen Sie Details zu allen zugewiesenen Modulen", 
+            "Prüfen Sie die Teilnehmerliste mit Kontaktdaten",
+            "⭐ NEU: Sehen Sie strukturierte Themen mit UE-Planung",
+            "Beispiel: 'React Basics (40 UE)' vom 01.01. bis 31.01."
+          ]
+        },
+        {
+          title: "Kurs-Einladungen",
+          content: "Erhalten Sie Einladungen zu Kursen von der Verwaltung und nehmen Sie diese an.",
+          icon: CheckCircle2,
+          steps: [
+            "Erhalten Sie INVITATION Benachrichtigung (graues Badge)",
+            "Klicken Sie auf Benachrichtigung um Details zu sehen",
+            "Prüfen Sie Kurs-Informationen (Titel, Datum, Raum)",
+            "Klicken Sie 'Annehmen' oder 'Ablehnen'",
+            "Bei Annahme: Kurs erscheint in 'Meine Kurse'"
           ]
         },
         {
           title: "Prüfungsverwaltung",
-          content: "Erstellen und verwalten Sie Prüfungen für Ihre Kurse.",
-          icon: CheckCircle2,
+          content: "Erstellen und verwalten Sie Prüfungen für Ihre Kurse mit Datum, Raum und Dauer.",
+          icon: BookCheck,
           steps: [
-            "Gehen Sie zu 'Prüfungsverwaltung'", 
-            "Erstellen Sie eine neue Prüfung", 
-            "Definieren Sie Datum und Uhrzeit"
+            "Gehen Sie zu 'Prüfungsverwaltung' in der Sidebar", 
+            "Klicken Sie auf 'Prüfung erstellen'", 
+            "Wählen Sie Kurs, Titel (z.B. 'React Basics Test')",
+            "Definieren Sie Datum, Uhrzeit, Raum und Dauer (z.B. 120 Min)",
+            "Prüfung erscheint in Liste und im Schüler-Dashboard"
           ]
         },
         {
           title: "Noten eintragen",
-          content: "Bewerten Sie Schülerleistungen und geben Sie Feedback.",
+          content: "Bewerten Sie Schülerleistungen - System benachrichtigt automatisch alle Schüler.",
           icon: BookOpen,
           steps: [
-            "Wählen Sie eine Prüfung aus", 
-            "Tragen Sie Noten für jeden Schüler ein", 
-            "Speichern Sie die Bewertungen"
+            "Wählen Sie eine Prüfung aus der Liste", 
+            "Sehen Sie alle eingeschriebenen Schüler",
+            "Tragen Sie Noten ein (z.B. '1.0', '2.3', '1.7')",
+            "Klicken Sie 'Speichern' für jeden Schüler",
+            "⭐ System sendet automatisch GRADE Benachrichtigung (blaues Badge)"
           ]
         }
       ]
     },
     student: {
       title: "Schüler-Tutorial",
-      description: "Ihr Begleiter für den täglichen Unterrichtsablauf.",
+      description: "Ihr Begleiter für den täglichen Unterrichtsablauf und Kommunikation.",
       icon: GraduationCap,
       sections: [
         {
           title: "Zeiterfassung",
-          content: "Erfassen Sie Ihre Arbeitszeiten präzise.",
+          content: "Erfassen Sie Ihre Arbeitszeiten präzise mit Standort (Vor Ort / Remote).",
           icon: Clock,
           steps: [
             "Klicken Sie auf 'Zeiterfassung' in der Sidebar", 
+            "Wählen Sie Ihren Standort: 'On Site' oder 'Remote'",
             "Nutzen Sie den grünen 'Clock In' Button beim Start", 
-            "Wählen Sie 'Remote' oder 'On Site'", 
-            "Beenden Sie den Tag mit 'Clock Out'"
+            "Status wechselt zu 'Active' mit laufendem Timer",
+            "Beenden Sie den Tag mit rotem 'Clock Out' Button",
+            "Sehen Sie Ihre Wochenübersicht mit Stunden pro Tag"
+          ]
+        },
+        {
+          title: "Benachrichtigungen & History",
+          content: "⭐ Intelligentes Benachrichtigungssystem mit farbigen Badges und History.",
+          icon: HelpCircle,
+          steps: [
+            "Glocken-Symbol (Header) zeigt Anzahl neuer Benachrichtigungen",
+            "Klicken öffnet Popover mit zwei Tabs: 'Neu' und 'Gelesen'",
+            "Farbcode: Blau (Note), Rot (Warnung), Grau (Einladung/Info)",
+            "⭐ Klick auf Benachrichtigung → Auto-Dismiss → Navigation",
+            "⭐ 'History' Seite: Tab 'Benachrichtigungen' für alle wichtigen Meldungen",
+            "Filter: Keine Anfragen in History - nur Noten, Einladungen, Warnungen"
           ]
         },
         {
           title: "Dashboard & Kurse",
-          content: "Ihr Überblick über aktuelle Module und Termine.",
+          content: "Ihr Überblick über aktuelle Module, Termine und Raum-Zuweisungen.",
           icon: LayoutDashboard,
           steps: [
-            "Das Dashboard zeigt aktuelle Informationen", 
-            "Unter 'Kursplan' finden Sie Ihre Termine", 
+            "Dashboard zeigt aktuelle Informationen und Ankündigungen", 
+            "Unter 'Mein Studium' finden Sie alle eingeschriebenen Kurse",
+            "⭐ NEU: Sehen Sie Raum-Zuweisungen (z.B. 'Room 101')",
+            "⭐ NEU: Kurs-Themen mit UE und Zeitplan",
             "Beachten Sie Ankündigungen auf dem Schwarzen Brett"
           ]
         },
         {
-          title: "Support Anfrage",
-          content: "Stellen Sie Fragen an Dozenten oder die Verwaltung.",
+          title: "Schwarzes Brett",
+          content: "Marketplace für Angebote und Gesuche (z.B. Laptop verkaufen, Nachhilfe suchen).",
+          icon: MessageSquare,
+          steps: [
+            "Klicken Sie auf 'Schwarzes Brett' in der Sidebar",
+            "Sehen Sie alle aktiven Posts mit Typ (OFFER/SEARCH)",
+            "Klicken Sie 'Eintrag erstellen' für neuen Post",
+            "Wählen Sie Typ: OFFER (Angebot) oder SEARCH (Suche)",
+            "Optional: Setzen Sie Ablaufdatum (Post wird auto-gelöscht)",
+            "⚠️ Moderation: Unangemessene Posts werden entfernt mit Benachrichtigung"
+          ]
+        },
+        {
+          title: "Anfragen stellen",
+          content: "Stellen Sie strukturierte Fragen direkt an Verwaltung oder Dozenten.",
           icon: HelpCircle,
           steps: [
-            "Klicken Sie auf 'Neue Anfrage' in der Sidebar", 
-            "Wählen Sie den Empfänger (Lehrer/Admin)", 
-            "Beschreiben Sie Ihr Anliegen und senden es ab"
+            "Klicken Sie 'Neue Anfrage' (oben rechts auf History-Seite)",
+            "Wählen Sie Kategorie: 'Verwaltung' oder 'Lehrer'",
+            "Geben Sie Betreff und Nachricht ein",
+            "Klicken Sie 'Absenden' - Staff erhält Benachrichtigung",
+            "Sie erhalten Info-Benachrichtigung sobald Antwort vorhanden",
+            "Sehen Sie alle Anfragen und Antworten unter 'History' → Tab 'Anfragen'"
           ]
         }
       ]

@@ -114,11 +114,22 @@ export function NotificationsSidebarClient({
                                     unreadNotifications.map((note) => (
                                         <div 
                                             key={note.id} 
-                                            className={`w-full p-3 text-sm hover:bg-slate-50 rounded border cursor-pointer transition-colors ${note.type === 'WARNING' ? 'border-red-200 bg-red-50/30' : ''}`}
+                                            className={`w-full p-3 text-sm hover:bg-slate-50 rounded border cursor-pointer transition-colors ${
+                                                note.type === 'WARNING' ? 'border-red-200 bg-red-50/30' : 
+                                                note.type === 'GRADE' ? 'border-blue-200 bg-blue-50/30' : ''
+                                            }`}
                                             onClick={() => handleNotificationClick(note)}
                                         >
                                             <div className="flex items-start gap-2 mb-2">
-                                                <Badge variant={getNotificationBadgeVariant(note.type)} className="text-[10px] shrink-0">
+                                                <Badge 
+                                                    variant={getNotificationBadgeVariant(note.type)} 
+                                                    className={`text-[10px] shrink-0 ${
+                                                        note.type === 'GRADE' ? 'bg-blue-500 text-white hover:bg-blue-600' :
+                                                        note.type === 'WARNING' ? 'bg-red-500 text-white hover:bg-red-600' :
+                                                        note.type === 'INVITATION' ? 'bg-green-500 text-white hover:bg-green-600' :
+                                                        'bg-gray-400 text-white hover:bg-gray-500'
+                                                    }`}
+                                                >
                                                     {getNotificationTypeLabel(note.type)}
                                                 </Badge>
                                                 <span className="text-[10px] text-gray-400">

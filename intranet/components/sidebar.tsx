@@ -135,10 +135,10 @@ export async function Sidebar() {
                     Skill Freigaben
                 </Button>
                 </Link>
-                <Link href="http://localhost:5555" target="_blank">
+                <Link href="https://console.neon.tech" target="_blank">
                 <Button variant="ghost" className="w-full justify-start gap-2 text-white hover:text-red-100 hover:bg-white/20">
                     <Database size={20} />
-                    Prisma DB
+                    Neon DB
                 </Button>
                 </Link>
             </>
