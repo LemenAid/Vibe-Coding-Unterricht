@@ -15,7 +15,6 @@ import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth";
 import { logoutAction } from "@/lib/auth-actions";
 import { NotificationsSidebar } from "@/components/notifications-wrapper";
-import { CreateInquiryDialog } from "@/app/inquiries/create-inquiry-dialog";
 import {
   Sidebar as ShadcnSidebar,
   SidebarContent,
@@ -169,7 +168,7 @@ export async function Sidebar() {
         <div className="flex items-center justify-between gap-2">
             <ModeToggle />
             <Link href="/tutorial">
-                <Button variant="ghost" className="gap-2 text-current hover:bg-white/20">
+                <Button variant="ghost" className="gap-2 text-current hover:bg-white/20 flex-row-reverse">
                     <BookOpen size={20} />
                     Tutorial
                 </Button>
