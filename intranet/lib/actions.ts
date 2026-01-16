@@ -83,18 +83,33 @@ export async function getBulletinPosts() {
   return posts;
 }
 
-export async function deleteBulletinPost(postId: string) {
+export async function deleteBulletinPost(postId: string, deletionReason?: string) {
     const user = await getCurrentUser();
     if (!user) throw new Error("Unauthorized");
 
-    const post = await prisma.bulletinPost.findUnique({ where: { id: postId } });
+    const post = await prisma.bulletinPost.findUnique({ 
+        where: { id: postId },
+        include: { user: true }
+    });
     if (!post) throw new Error("Post not found");
 
     if (post.userId !== user.id && user.role !== 'admin' && user.role !== 'staff') {
         throw new Error("Forbidden");
     }
 
+    // If deleted by staff/admin and not the owner, send notification to author
+    const deletedByStaff = post.userId !== user.id && (user.role === 'admin' || user.role === 'staff');
+    
     await prisma.bulletinPost.delete({ where: { id: postId } });
+    
+    if (deletedByStaff) {
+        const message = deletionReason 
+            ? `Dein Beitrag "${post.title}" wurde von der Verwaltung entfernt. Grund: ${deletionReason}`
+            : `Dein Beitrag "${post.title}" wurde von der Verwaltung entfernt.`;
+        
+        await createNotification(post.userId, message, '/bulletin', 'WARNING');
+    }
+    
     revalidatePath('/bulletin');
 }
 
@@ -191,13 +206,14 @@ export async function getExams() {
 
 // Inquiries
 
-export async function createNotification(userId: string, message: string, link?: string) {
+export async function createNotification(userId: string, message: string, link?: string, type: string = "INFO") {
     try {
         await prisma.notification.create({
             data: {
                 userId,
                 message,
-                link
+                link,
+                type
             }
         });
     } catch (e) {
@@ -243,7 +259,7 @@ export async function createInquiry(prevState: { success: boolean, message: stri
                         userId: user.id
                     },
                 });
-                await createNotification(student.id, `Neue Anfrage von ${user.name}: ${subject}`, `/inquiries`);
+                await createNotification(student.id, `Neue Anfrage von ${user.name}: ${subject}`, `/inquiries`, 'INQUIRY');
              }
              
              revalidatePath('/'); 
@@ -265,7 +281,7 @@ export async function createInquiry(prevState: { success: boolean, message: stri
         // Notifications Logic
         if (recipientId) {
                 // Direct message notification
-                await createNotification(recipientId, `Neue Anfrage von ${user.name}: ${subject}`, `/inquiries`);
+                await createNotification(recipientId, `Neue Anfrage von ${user.name}: ${subject}`, `/inquiries`, 'INQUIRY');
             } else if (category === 'ADMIN') {
             // Notify all admins and staff
             const adminsAndStaff = await prisma.user.findMany({
@@ -275,7 +291,7 @@ export async function createInquiry(prevState: { success: boolean, message: stri
                 select: { id: true }
             });
             for (const admin of adminsAndStaff) {
-                await createNotification(admin.id, `Neue Anfrage an Verwaltung/Admin von ${user.name}: ${subject}`, `/inquiries`);
+                await createNotification(admin.id, `Neue Anfrage an Verwaltung/Admin von ${user.name}: ${subject}`, `/inquiries`, 'INQUIRY');
             }
 
         } else if (category === 'TEACHER') {
@@ -296,7 +312,7 @@ export async function createInquiry(prevState: { success: boolean, message: stri
             });
             // Limit broadcast to avoid timeout on large db, but for intranet it's okay
             for (const student of allStudents) {
-                await createNotification(student.id, `Allgemeine Nachricht an alle Studenten von ${user.name}: ${subject}`, `/inquiries`);
+                await createNotification(student.id, `Allgemeine Nachricht an alle Studenten von ${user.name}: ${subject}`, `/inquiries`, 'INQUIRY');
             }
         }
 
@@ -415,7 +431,7 @@ export async function resolveInquiry(formData: FormData) {
     });
 
     // Notify the user who created the inquiry
-    await createNotification(updatedInquiry.userId, `Deine Anfrage "${updatedInquiry.subject}" wurde beantwortet.`, `/inquiries`);
+    await createNotification(updatedInquiry.userId, `Deine Anfrage "${updatedInquiry.subject}" wurde beantwortet.`, `/inquiries`, 'INQUIRY');
 
     revalidatePath('/');
     revalidatePath('/inquiries');
@@ -795,7 +811,7 @@ export async function updateExamGrades(formData: FormData) {
             }
             
             // Notification
-            await createNotification(studentId, `Neue Note eingetragen für Prüfung: ${gradeValue}`, `/profile`);
+            await createNotification(studentId, `Neue Note eingetragen für Prüfung: ${gradeValue}`, `/profile`, 'GRADE');
         }
     }
     revalidatePath("/teacher/exams");
@@ -959,7 +975,7 @@ export async function inviteTeacherToCourse(courseId: string, teacherId: string)
     }
 
     // 5. Notify Teacher
-    await createNotification(teacherId, `Du wurdest eingeladen, den Kurs "${course.title}" zu unterrichten.`, `/teacher/courses`);
+    await createNotification(teacherId, `Du wurdest eingeladen, den Kurs "${course.title}" zu unterrichten.`, `/teacher/courses`, 'INVITATION');
 
     revalidatePath('/planning');
 }
@@ -998,7 +1014,7 @@ export async function respondToCourseInvitation(invitationId: string, accept: bo
             select: { id: true }
         });
         for (const admin of adminsAndStaff) {
-             await createNotification(admin.id, `Lehrer ${invitation.teacher.name} hat den Kurs "${invitation.course.title}" ANGENOMMEN.`, `/planning`);
+             await createNotification(admin.id, `Lehrer ${invitation.teacher.name} hat den Kurs "${invitation.course.title}" ANGENOMMEN.`, `/planning`, 'INFO');
         }
 
         // Notify Teacher (Confirmation)
@@ -1017,7 +1033,7 @@ export async function respondToCourseInvitation(invitationId: string, accept: bo
             select: { id: true }
         });
         for (const admin of adminsAndStaff) {
-             await createNotification(admin.id, `Lehrer ${invitation.teacher.name} hat den Kurs "${invitation.course.title}" ABGELEHNT.`, `/planning`);
+             await createNotification(admin.id, `Lehrer ${invitation.teacher.name} hat den Kurs "${invitation.course.title}" ABGELEHNT.`, `/planning`, 'INFO');
         }
 
         // Notify Teacher (Confirmation)
@@ -1198,6 +1214,21 @@ export async function getUnreadNotifications() {
     return prisma.notification.findMany({
         where: { userId: user.id, isRead: false },
         orderBy: { createdAt: 'desc' }
+    });
+}
+
+export async function getReadNotifications() {
+    const user = await getCurrentUser();
+    if (!user) return [];
+
+    return prisma.notification.findMany({
+        where: { 
+            userId: user.id, 
+            isRead: true,
+            type: { notIn: ['INQUIRY'] } // Exclude inquiry notifications from history
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50 // Limit to last 50
     });
 }
 

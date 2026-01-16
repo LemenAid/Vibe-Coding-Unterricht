@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { getCurrentUser } from "@/lib/auth";
 import { logoutAction } from "@/lib/auth-actions";
-import { NotificationsSidebar } from "@/components/notifications-sidebar";
+import { NotificationsSidebar } from "@/components/notifications-wrapper";
 import { CreateInquiryDialog } from "@/app/inquiries/create-inquiry-dialog";
 import {
   Sidebar as ShadcnSidebar,

@@ -32,6 +32,7 @@ export default async function BulletinPage() {
             const isOwner = user?.id === post.userId;
             const isAdminOrStaff = user?.role === 'admin' || user?.role === 'staff';
             const canDelete = isOwner || isAdminOrStaff;
+            const needsReason = !isOwner && isAdminOrStaff;
 
             return (
               <Card key={post.id} className="flex flex-col relative group">
@@ -47,7 +48,7 @@ export default async function BulletinPage() {
                         <span className="text-xs text-gray-400">
                             {post.createdAt.toLocaleDateString()}
                         </span>
-                        {canDelete && <DeletePostButton postId={post.id} />}
+                        {canDelete && <DeletePostButton postId={post.id} authorId={post.userId} needsReason={needsReason} />}
                     </div>
                   </div>
                   <CardTitle className="mt-2 text-lg">{post.title}</CardTitle>

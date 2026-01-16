@@ -221,6 +221,7 @@ model Notification {
   message   String
   link      String?  // Optional URL for deep linking
   isRead    Boolean  @default(false)
+  type      String   @default("INFO") // INFO, INQUIRY, GRADE, INVITATION, WARNING
   createdAt DateTime @default(now())
 }
 
