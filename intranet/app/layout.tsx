@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CC Intranet",
+  title: "Schulportal",
   description: "Internes Portal",
 };
 
